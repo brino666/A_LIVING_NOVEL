@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A Living Novel</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0c0b0a; --surface: #16140f; --border: #2a2620;
+    --accent: #d9a35c; --text: #ece6da; --muted: #8a8375;
+    --font-prose: 'Fraunces', serif; --font-mono: 'IBM Plex Mono', monospace;
+  }
+  body { background: var(--bg); color: var(--text); font-family: var(--font-mono); min-height: 100vh; }
+  .container { max-width: 720px; margin: 0 auto; padding: 40px 24px 80px; }
+  header { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid var(--border); padding-bottom: 20px; margin-bottom: 32px; }
+  .brand { font-size: 13px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--accent); }
+  .worldtime { font-size: 12px; color: var(--muted); }
+
+  .hidden { display: none !important; }
+
+  /* auth */
+  #authGate { display: flex; flex-direction: column; gap: 12px; max-width: 360px; }
+  #authGate input { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 12px 14px; font-family: var(--font-mono); font-size: 13px; }
+  #authGate button, .btn { background: var(--accent); color: #1a1206; border: none; font-family: var(--font-mono); font-weight: 500; font-size: 13px; letter-spacing: 0.04em; padding: 12px 20px; cursor: pointer; }
+  #authGate button:hover, .btn:hover { opacity: 0.9; }
+  .muted-note { color: var(--muted); font-size: 12px; line-height: 1.5; }
+
+  /* world creation */
+  #createForm { display: flex; flex-direction: column; gap: 14px; }
+  #createForm label { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); display: block; margin-bottom: 6px; }
+  #createForm input, #createForm select, #createForm textarea {
+    width: 100%; background: var(--surface); border: 1px solid var(--border); color: var(--text);
+    padding: 10px 12px; font-family: var(--font-mono); font-size: 13px;
+  }
+  #createForm textarea { min-height: 70px; resize: vertical; }
+
+  /* scene */
+  .scene-text { font-family: var(--font-prose); font-size: 18px; line-height: 1.75; white-space: pre-wrap; margin-bottom: 28px; }
+  .scene-meta { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 10px; }
+  .action-row { display: flex; gap: 8px; margin-top: 20px; }
+  .action-row input { flex: 1; background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 12px 14px; font-family: var(--font-mono); font-size: 13px; }
+  .spinner { display: none; font-size: 12px; color: var(--muted); margin-top: 10px; }
+  .spinner.active { display: block; }
+  .past-scene { opacity: 0.5; font-size: 15px; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px dashed var(--border); }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="brand">A Living Novel</div>
+    <div class="worldtime" id="worldTime"></div>
+  </header>
+
+  <div id="authGate">
+    <p class="muted-note">Sign in to enter your world. A code will be emailed to you.</p>
+    <input type="email" id="authEmail" placeholder="you@example.com">
+    <button id="authSendBtn" onclick="sendMagicLink()">Send sign-in link</button>
+    <p class="muted-note" id="authStatus"></p>
+  </div>
+
+  <div id="createForm" class="hidden">
+    <p class="muted-note">The world continues whether or not you show up. Set the seed and step in.</p>
+    <div>
+      <label>World title</label>
+      <input type="text" id="worldTitle" placeholder="The Hollow Coast">
+    </div>
+    <div>
+      <label>Genre</label>
+      <select id="worldGenre">
+        <option value="mystery">Mystery</option>
+        <option value="fantasy">Fantasy</option>
+        <option value="romance">Romance</option>
+        <option value="sci-fi">Sci-fi</option>
+        <option value="literary">Literary / slice-of-life</option>
+        <option value="thriller">Thriller</option>
+      </select>
+    </div>
+    <div>
+      <label>Tone notes (optional)</label>
+      <textarea id="worldTone" placeholder="Quiet, melancholy, slow-burn tension"></textarea>
+    </div>
+    <div>
+      <label>Your character's name</label>
+      <input type="text" id="charName" placeholder="Mara Voss">
+    </div>
+    <div>
+      <label>Your character, briefly</label>
+      <textarea id="charTraits" placeholder="A dockworker with a debt she can't explain"></textarea>
+    </div>
+    <button class="btn" id="createBtn" onclick="createWorld()">Begin</button>
+    <p class="spinner" id="createSpinner">Seeding your world...</p>
+  </div>
+
+  <div id="sceneView" class="hidden">
+    <div id="pastScenes"></div>
+    <div class="scene-meta" id="sceneMeta"></div>
+    <div class="scene-text" id="sceneText"></div>
+    <div class="action-row">
+      <input type="text" id="actionInput" placeholder="What do you do?" onkeydown="if(event.key==='Enter') takeTurn()">
+      <button class="btn" onclick="takeTurn()">Continue</button>
+    </div>
+    <p class="spinner" id="turnSpinner">The world responds...</p>
+  </div>
+</div>
+
+<script>
+// ── Config ──────────────────────────────────────────────────────────
+// TODO: fill in with your own Supabase project (separate from any other
+// app's project). The anon key is safe to expose client-side.
+const SUPABASE_URL = 'YOUR_SUPABASE_PROJECT_URL';
+const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+
+let supabaseClient = null;
+let currentUser = null;
+let currentWorld = null; // full snapshot: { world, storyState, userCharacter, characters, locations, events }
+
+(async function initAuth() {
+  try {
+    const { createClient } = supabase;
+    supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (session && session.user) { onSignedIn(session.user); }
+    supabaseClient.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session && session.user) onSignedIn(session.user);
+    });
+  } catch (e) {
+    document.getElementById('authStatus').textContent = 'Auth unavailable -- check Supabase config.';
+  }
+})();
+
+async function sendMagicLink() {
+  const email = document.getElementById('authEmail').value.trim();
+  if (!email) return;
+  document.getElementById('authStatus').textContent = 'Sending...';
+  const { error } = await supabaseClient.auth.signInWithOtp({ email });
+  document.getElementById('authStatus').textContent = error ? error.message : 'Check your email for the sign-in link.';
+}
+
+async function onSignedIn(user) {
+  currentUser = user;
+  document.getElementById('authGate').classList.add('hidden');
+  const res = await fetch('/api/world?userId=' + encodeURIComponent(user.id));
+  const data = await res.json();
+  if (data.world) {
+    currentWorld = data.world;
+    renderScene(currentWorld.storyState.last_scene_summary, { fresh: true });
+    document.getElementById('sceneView').classList.remove('hidden');
+  } else {
+    document.getElementById('createForm').classList.remove('hidden');
+  }
+}
+
+async function createWorld() {
+  const title = document.getElementById('worldTitle').value.trim();
+  const genre = document.getElementById('worldGenre').value;
+  const tone = document.getElementById('worldTone').value.trim();
+  const charName = document.getElementById('charName').value.trim();
+  const charTraits = document.getElementById('charTraits').value.trim();
+  if (!title || !charName) return;
+
+  document.getElementById('createBtn').disabled = true;
+  document.getElementById('createSpinner').classList.add('active');
+
+  try {
+    const res = await fetch('/api/world', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: currentUser.id,
+        title, genre,
+        toneSettings: { notes: tone },
+        userCharacter: { name: charName, traits: { description: charTraits } },
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to create world');
+    currentWorld = data.world;
+    document.getElementById('createForm').classList.add('hidden');
+    document.getElementById('sceneView').classList.remove('hidden');
+    renderScene(currentWorld.storyState.last_scene_summary, { fresh: true });
+  } catch (e) {
+    alert(e.message);
+  } finally {
+    document.getElementById('createBtn').disabled = false;
+    document.getElementById('createSpinner').classList.remove('active');
+  }
+}
+
+async function takeTurn() {
+  const input = document.getElementById('actionInput');
+  const action = input.value.trim();
+  input.value = '';
+  document.getElementById('turnSpinner').classList.add('active');
+
+  try {
+    const res = await fetch('/api/turn', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: currentUser.id, worldId: currentWorld.world.id, userAction: action || null }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to continue');
+    archivePastScene();
+    renderScene(data.scene, { worldTime: data.world_time });
+  } catch (e) {
+    alert(e.message);
+  } finally {
+    document.getElementById('turnSpinner').classList.remove('active');
+  }
+}
+
+function archivePastScene() {
+  const text = document.getElementById('sceneText').textContent;
+  if (!text) return;
+  const div = document.createElement('div');
+  div.className = 'past-scene';
+  div.textContent = text;
+  document.getElementById('pastScenes').prepend(div);
+}
+
+function renderScene(text, opts) {
+  opts = opts || {};
+  document.getElementById('sceneText').textContent = text;
+  document.getElementById('sceneMeta').textContent = opts.fresh ? 'Where things stand' : 'Just now';
+  if (opts.worldTime) document.getElementById('worldTime').textContent = opts.worldTime;
+}
+</script>
+</body>
+</html>
