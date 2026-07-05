@@ -6,17 +6,18 @@
 import {
   getWorldSnapshot, advanceWorldTime, saveSceneSummary, updateStoryState,
   updateCharacter, updateLocation, insertCharacter, insertEvent, resolveEvents,
+  consumeChapterSlot,
 } from '../lib/novel-engine/db.js';
 import { advanceTime, formatWorldTime } from '../lib/novel-engine/time.js';
 import { runStoryDirector } from '../lib/novel-engine/director.js';
 import { writeScene } from '../lib/novel-engine/writer.js';
 import { shouldConsolidate, consolidateMemory } from '../lib/novel-engine/memory.js';
+import { evaluateChapterCap } from '../lib/novel-engine/chapters.js';
 
-// This turn chains 2-3 sequential Claude calls (Director, Writer, and every
-// 4th turn a memory consolidation) -- well past Vercel's default 10s
-// function timeout. Requires a paid plan for maxDuration above 10s/60s
-// (Vercel enforces a plan-based ceiling regardless of this value).
-export const config = { maxDuration: 60 };
+// Full-length chapters (~2500 words) push the Director + Writer chain well
+// past a minute -- Vercel's Hobby plan hard-caps functions at 60s regardless
+// of this setting; this app needs a paid plan once chapters are this long.
+export const config = { maxDuration: 120 };
 
 const PRIORITY_PRESSURE = { high: 0.85, medium: 0.5, low: 0.2 };
 
@@ -98,6 +99,19 @@ export default async function handler(req, res) {
     if (!snapshot) return res.status(404).json({ error: 'World not found' });
     if (snapshot.world.user_id !== userId) return res.status(403).json({ error: 'Not your world' });
 
+    const capCheck = evaluateChapterCap(snapshot.world);
+    if (!capCheck.allowed) {
+      return res.status(429).json({
+        error: 'Daily chapter limit reached',
+        chapters_used: capCheck.chaptersUsed,
+        chapter_cap: capCheck.chapterCap,
+        resets_at: new Date(capCheck.resetsAt).toISOString(),
+      });
+    }
+    // Consume the slot before the expensive LLM chain, not after, so two
+    // rapid clicks can't both slip through while the first is still running.
+    await consumeChapterSlot(worldId, capCheck);
+
     const { newTime, hoursAdvanced } = advanceTime(snapshot.world.current_time, !!userAction);
 
     const directorOutput = await runStoryDirector({ snapshot, userAction, hoursAdvanced });
@@ -128,6 +142,9 @@ export default async function handler(req, res) {
       hours_advanced: hoursAdvanced,
       narrative_priority: directorOutput.narrative_priority,
       scene_focus: directorOutput.scene_focus,
+      chapters_used: capCheck.newCount,
+      chapter_cap: capCheck.chapterCap,
+      resets_at: new Date(capCheck.resetsAt).toISOString(),
     });
   } catch (err) {
     console.error('[novel-engine/turn error]', err);

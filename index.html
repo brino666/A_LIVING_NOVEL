@@ -103,6 +103,7 @@
       <button class="btn" onclick="takeTurn()">Continue</button>
     </div>
     <p class="spinner" id="turnSpinner">The world responds...</p>
+    <p class="muted-note" id="chapterCapNote"></p>
   </div>
 </div>
 
@@ -148,6 +149,7 @@ async function onSignedIn(user) {
     currentWorld = data.world;
     renderScene(currentWorld.storyState.last_scene_summary, { fresh: true });
     document.getElementById('sceneView').classList.remove('hidden');
+    updateChapterCapNote(currentWorld.world.chapters_in_window, currentWorld.world.chapter_cap);
   } else {
     document.getElementById('createForm').classList.remove('hidden');
   }
@@ -202,9 +204,14 @@ async function takeTurn() {
       body: JSON.stringify({ userId: currentUser.id, worldId: currentWorld.world.id, userAction: action || null }),
     });
     const data = await res.json();
+    if (res.status === 429) {
+      showChapterCapReached(data);
+      return;
+    }
     if (!res.ok) throw new Error(data.error || 'Failed to continue');
     archivePastScene();
     renderScene(data.scene, { worldTime: data.world_time });
+    updateChapterCapNote(data.chapters_used, data.chapter_cap, data.resets_at);
   } catch (e) {
     alert(e.message);
   } finally {
@@ -226,6 +233,21 @@ function renderScene(text, opts) {
   document.getElementById('sceneText').textContent = text;
   document.getElementById('sceneMeta').textContent = opts.fresh ? 'Where things stand' : 'Just now';
   if (opts.worldTime) document.getElementById('worldTime').textContent = opts.worldTime;
+}
+
+function updateChapterCapNote(chaptersUsed, chapterCap, resetsAt) {
+  if (chapterCap == null) return;
+  const remaining = Math.max(0, chapterCap - chaptersUsed);
+  document.getElementById('chapterCapNote').textContent =
+    remaining + ' of ' + chapterCap + ' chapters left today.';
+}
+
+function showChapterCapReached(data) {
+  const resetTime = data.resets_at ? new Date(data.resets_at) : null;
+  const hoursLeft = resetTime ? Math.max(1, Math.ceil((resetTime - Date.now()) / 3600000)) : null;
+  document.getElementById('chapterCapNote').textContent =
+    "You've read today's " + (data.chapter_cap || '') + ' chapters. ' +
+    (hoursLeft ? 'The world keeps moving -- come back in about ' + hoursLeft + 'h.' : 'Come back tomorrow.');
 }
 </script>
 </body>
