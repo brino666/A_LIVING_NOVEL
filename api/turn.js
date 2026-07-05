@@ -88,6 +88,7 @@ async function applyDirectorUpdates(worldId, snapshot, directorOutput, newTime) 
 }
 
 export default async function handler(req, res) {
+  res.setHeader('Cache-Control', 'no-store');
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const body = req.body || {};
