@@ -112,13 +112,13 @@ export default async function handler(req, res) {
     // rapid clicks can't both slip through while the first is still running.
     await consumeChapterSlot(worldId, capCheck);
 
-    const { newTime, hoursAdvanced } = advanceTime(snapshot.world.current_time, !!userAction);
+    const { newTime, hoursAdvanced } = advanceTime(snapshot.world.world_hours, !!userAction);
 
     const directorOutput = await runStoryDirector({ snapshot, userAction, hoursAdvanced });
 
     await applyDirectorUpdates(worldId, snapshot, directorOutput, newTime);
 
-    snapshot.world.current_time = newTime; // so the Writer sees the advanced clock
+    snapshot.world.world_hours = newTime; // so the Writer sees the advanced clock
     const sceneText = await writeScene({ snapshot, directorOutput, userAction });
 
     const interactionCount = (snapshot.world.interaction_count || 0) + 1;

@@ -14,7 +14,7 @@ create table if not exists worlds (
   user_id uuid not null references auth.users(id) on delete cascade,
   title text not null,
   genre text not null default 'general',
-  current_time bigint not null default 0, -- hours elapsed since world start
+  world_hours bigint not null default 0, -- hours elapsed since world start
   interaction_count integer not null default 0,
   tone_settings jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now()
