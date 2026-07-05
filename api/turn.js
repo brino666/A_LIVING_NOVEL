@@ -12,6 +12,12 @@ import { runStoryDirector } from '../lib/novel-engine/director.js';
 import { writeScene } from '../lib/novel-engine/writer.js';
 import { shouldConsolidate, consolidateMemory } from '../lib/novel-engine/memory.js';
 
+// This turn chains 2-3 sequential Claude calls (Director, Writer, and every
+// 4th turn a memory consolidation) -- well past Vercel's default 10s
+// function timeout. Requires a paid plan for maxDuration above 10s/60s
+// (Vercel enforces a plan-based ceiling regardless of this value).
+export const config = { maxDuration: 60 };
+
 const PRIORITY_PRESSURE = { high: 0.85, medium: 0.5, low: 0.2 };
 
 function clamp01(n) {

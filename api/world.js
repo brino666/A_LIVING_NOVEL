@@ -6,6 +6,10 @@ import {
 } from '../lib/novel-engine/db.js';
 import { generateGenesis } from '../lib/novel-engine/genesis.js';
 
+// World creation runs a genesis LLM call plus several sequential inserts --
+// can run past Vercel's default 10s function timeout.
+export const config = { maxDuration: 60 };
+
 async function handleGet(req, res) {
   const userId = req.query.userId;
   if (!userId) return res.status(400).json({ error: 'userId is required' });
