@@ -201,6 +201,9 @@
             <div class="settings-row">
               <span class="account-email" id="accountEmail"></span>
             </div>
+            <div class="settings-row hidden" id="installRow">
+              <button class="text-btn" id="installBtn" onclick="installApp()">Install app</button>
+            </div>
           </div>
         </div>
       </div>
@@ -324,6 +327,30 @@ function showWorldTitle(title) {
   el.textContent = title;
   el.classList.add('visible');
 }
+
+// ── Install to desktop/home screen ─────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+
+let deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  document.getElementById('installRow').classList.remove('hidden');
+});
+
+async function installApp() {
+  if (!deferredInstallPrompt) return;
+  deferredInstallPrompt.prompt();
+  await deferredInstallPrompt.userChoice;
+  deferredInstallPrompt = null;
+  document.getElementById('installRow').classList.add('hidden');
+}
+
+window.addEventListener('appinstalled', () => {
+  document.getElementById('installRow').classList.add('hidden');
+});
 
 // ── Config ──────────────────────────────────────────────────────────
 // TODO: fill in with your own Supabase project (separate from any other
