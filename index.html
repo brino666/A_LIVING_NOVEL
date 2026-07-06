@@ -14,6 +14,7 @@
     --bg: #0c0b0a; --surface: #17140f; --surface2: #1c1811; --border: #332d24;
     --accent: #d9a35c; --text: #f2ece0; --muted: #a89e8c;
     --font-prose: 'Fraunces', serif; --font-mono: 'IBM Plex Mono', monospace;
+    --prose-tracking: 0.008em; --prose-word-spacing: 0.03em;
   }
   :root[data-theme="light"] {
     --bg: #f3ecdd; --surface: #ffffff; --surface2: #faf5ea; --border: #ddcfae;
@@ -50,11 +51,25 @@
     background-image: repeating-linear-gradient(90deg, rgba(74,143,160,.9) 0 2px, transparent 2px 9px);
   }
 
-  #novelFrame.genre-mystery, #novelFrame.genre-thriller { --font-prose: 'Special Elite', monospace; }
-  #novelFrame.genre-fantasy { --font-prose: 'Cinzel', serif; }
-  #novelFrame.genre-romance { --font-prose: 'Cormorant Garamond', serif; }
-  #novelFrame.genre-sci-fi  { --font-prose: 'Orbitron', sans-serif; }
-  #novelFrame.genre-literary { --font-prose: 'Fraunces', serif; }
+  /* Display faces like Cinzel/Orbitron are cut tight for headlines, not
+     paragraphs -- crowds quotes and punctuation at body-text sizes without
+     extra tracking. Typewriter faces (Special Elite) are already wide and
+     look more authentic close to zero. */
+  #novelFrame.genre-mystery, #novelFrame.genre-thriller {
+    --font-prose: 'Special Elite', monospace; --prose-tracking: 0; --prose-word-spacing: 0.05em;
+  }
+  #novelFrame.genre-fantasy {
+    --font-prose: 'Cinzel', serif; --prose-tracking: 0.035em; --prose-word-spacing: 0.06em;
+  }
+  #novelFrame.genre-romance {
+    --font-prose: 'Cormorant Garamond', serif; --prose-tracking: 0.018em; --prose-word-spacing: 0.03em;
+  }
+  #novelFrame.genre-sci-fi {
+    --font-prose: 'Orbitron', sans-serif; --prose-tracking: 0.045em; --prose-word-spacing: 0.08em;
+  }
+  #novelFrame.genre-literary {
+    --font-prose: 'Fraunces', serif; --prose-tracking: 0.008em; --prose-word-spacing: 0.03em;
+  }
 
   .container { padding: 40px 6px 80px; }
   header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 20px; margin-bottom: 32px; }
@@ -91,13 +106,21 @@
   #createForm textarea { min-height: 70px; resize: vertical; }
 
   /* ── Scene ────────────────────────────────────────────────────────── */
-  .scene-text { font-family: var(--font-prose); font-size: 19px; line-height: 1.8; white-space: pre-wrap; margin-bottom: 28px; color: var(--text); }
+  .scene-text {
+    font-family: var(--font-prose); font-size: 19px; line-height: 1.8; white-space: pre-wrap;
+    margin-bottom: 28px; color: var(--text);
+    letter-spacing: var(--prose-tracking); word-spacing: var(--prose-word-spacing);
+  }
   .scene-meta { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 10px; }
   .action-row { display: flex; gap: 8px; margin-top: 20px; }
   .action-row input { flex: 1; background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 12px 14px; font-family: var(--font-mono); font-size: 13px; }
   .spinner { display: none; font-size: 12px; color: var(--muted); margin-top: 10px; }
   .spinner.active { display: block; }
-  .past-scene { opacity: 0.6; font-size: 16px; font-family: var(--font-prose); margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px dashed var(--border); }
+  .past-scene {
+    opacity: 0.6; font-size: 16px; font-family: var(--font-prose); margin-bottom: 20px;
+    padding-bottom: 20px; border-bottom: 1px dashed var(--border);
+    letter-spacing: var(--prose-tracking); word-spacing: var(--prose-word-spacing);
+  }
 </style>
 </head>
 <body>
