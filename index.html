@@ -108,9 +108,22 @@
 
   /* ── Auth ─────────────────────────────────────────────────────────── */
   #authGate { display: flex; flex-direction: column; gap: 12px; max-width: 360px; }
+
+  /* ── Onboarding ───────────────────────────────────────────────────── */
+  #onboardingView { display: flex; flex-direction: column; gap: 4px; max-width: 620px; }
+  .onboarding-title { font-family: var(--font-prose); font-size: 1.3125rem; margin-bottom: 8px; }
+  #onboardingView h3 { font-size: 0.8125rem; margin-top: 16px; color: var(--accent); }
+  #onboardingView p { font-size: 0.8125rem; line-height: 1.6; color: var(--text); }
+  #onboardingView ul { font-size: 0.8125rem; line-height: 1.6; color: var(--text); margin: 4px 0 4px 1.2em; }
+  #onboardingView a { color: var(--accent); }
+  .agree-block { margin-top: 18px; }
+  .agree-row { display: flex; align-items: flex-start; gap: 8px; font-size: 0.75rem; color: var(--muted); cursor: pointer; }
+  .agree-row input { margin-top: 3px; }
+  #onboardingContinueBtn { margin-top: 12px; align-self: flex-start; }
   #authGate input { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 12px 14px; font-family: var(--font-mono); font-size: 0.8125rem; }
   #authGate button, .btn { background: var(--accent); color: #1a1206; border: none; font-family: var(--font-mono); font-weight: 500; font-size: 0.8125rem; letter-spacing: 0.04em; padding: 14px 22px; cursor: pointer; }
   #authGate button:hover, .btn:hover { opacity: 0.9; }
+  #authGate button:disabled, .btn:disabled { opacity: 0.4; cursor: not-allowed; }
   .muted-note { color: var(--muted); font-size: 0.75rem; line-height: 1.5; }
 
   /* ── World creation ───────────────────────────────────────────────── */
@@ -218,6 +231,10 @@
             <div class="settings-row hidden" id="installRow">
               <button class="text-btn" id="installBtn" onclick="installApp()">Install app</button>
             </div>
+            <div class="settings-row">
+              <button class="text-btn" onclick="showOnboarding()">How this works</button>
+              <a class="text-btn" href="/terms.html" target="_blank" rel="noopener">Terms of Service</a>
+            </div>
           </div>
         </div>
       </div>
@@ -228,6 +245,74 @@
       <input type="email" id="authEmail" placeholder="you@example.com">
       <button id="authSendBtn" onclick="sendMagicLink()">Send sign-in link</button>
       <p class="muted-note" id="authStatus"></p>
+    </div>
+
+    <div id="onboardingView" class="hidden">
+      <h2 class="onboarding-title">How A Living Novel Works</h2>
+
+      <h3>1. This isn't a chatbot.</h3>
+      <p>Each time you continue, you get a real chapter -- roughly 2,200-2,500
+      words, with actual chapter structure -- not a quick reply. It takes a
+      bit to write; that's the trade for something that reads like a book
+      instead of a text thread.</p>
+
+      <h3>2. The world moves whether you show up or not.</h3>
+      <p>Time keeps passing for the people around you between visits. Come
+      back after a gap and things will have changed -- you'll find out the
+      way you would coming home from a trip: gradually, through what people
+      say and do, not a summary dumped on you at login.</p>
+
+      <h3>3. The "What do you do?" box is always your character's action.</h3>
+      <p>Whatever you type is read as something your character does or says
+      -- never a note to the story. To change direction -- end a
+      relationship, skip town, take time off -- write it as an action: "I
+      stop returning his calls," "I drive to the next town." The story
+      follows.</p>
+
+      <h3>4. You can dial the intensity -- within real limits.</h3>
+      <p>Settings has a +/- control to make a world feel gentler or more
+      intense than its baseline. There's no ceiling on the dial itself, but
+      there is a hard ceiling on what the writing engine will produce, no
+      matter how far you push it:</p>
+      <ul>
+        <li>Dark, violent, morally complex, or unsettling fiction -- available, and can get genuinely intense.</li>
+        <li>Sexually explicit content -- not available, at any setting.</li>
+        <li>Gratuitous gore or torture written purely for shock -- moderated even at maximum.</li>
+        <li>Anything sexualizing minors -- never, under any circumstance, full stop.</li>
+        <li>Real-world harmful instructions dressed up as fiction -- not available.</li>
+      </ul>
+      <p>If a chapter goes somewhere you don't want, dial it back, or just
+      have your character leave.</p>
+
+      <h3>5. Chapters are capped and don't roll over.</h3>
+      <p>4 chapters per rolling 24 hours on the base plan, 6 on the higher
+      tier. Unused chapters don't carry over -- bank them and burn through
+      several at once and you mostly get the bartender washing the same
+      glass while the jukebox works through its playlist, one song at a
+      time, nothing happening, nothing happening, a car passing outside.
+      There's only so much story in a day; stockpiling chapters dilutes the
+      thing that makes this a living novel instead of a book you binge. The
+      cap refreshes 24 hours after your first chapter in that window, not at
+      a fixed clock time like midnight.</p>
+
+      <h3>6. Each world is its own subscription.</h3>
+      <p>Running two stories at once means two subscriptions -- there's no
+      bundled unlimited tier. Switch between the ones you have from My
+      Library.</p>
+
+      <h3>7. Free trial: 1 day, 4 chapters, then billing begins.</h3>
+      <p>Your subscription renews automatically at the end of each billing
+      period until you cancel. Cancel anytime from your account settings --
+      see the <a href="/terms.html" target="_blank" rel="noopener">Terms of
+      Service</a> for the full billing and cancellation terms.</p>
+
+      <div class="agree-block" id="agreeBlock">
+        <label class="agree-row">
+          <input type="checkbox" id="agreeTermsCheck" onchange="document.getElementById('onboardingContinueBtn').disabled = !this.checked">
+          I have read and agree to the <a href="/terms.html" target="_blank" rel="noopener">Terms of Service</a>.
+        </label>
+      </div>
+      <button class="btn" id="onboardingContinueBtn" onclick="closeOnboarding()">Continue</button>
     </div>
 
     <div id="libraryView" class="hidden">
@@ -420,7 +505,50 @@ async function sendMagicLink() {
 }
 
 function hideAllViews() {
-  ['libraryView', 'createForm', 'sceneView'].forEach((id) => document.getElementById(id).classList.add('hidden'));
+  ['libraryView', 'createForm', 'sceneView', 'onboardingView'].forEach((id) => document.getElementById(id).classList.add('hidden'));
+}
+
+const ONBOARDING_SEEN_KEY = 'aln_onboarding_seen';
+let onboardingReturnAction = null;
+
+function showOnboarding(returnAction) {
+  document.getElementById('settingsPanel').classList.remove('open');
+  const requireAgreement = !localStorage.getItem(ONBOARDING_SEEN_KEY);
+  const activeView = ['sceneView', 'createForm', 'libraryView'].find((id) => !document.getElementById(id).classList.contains('hidden'));
+
+  onboardingReturnAction = returnAction || (() => {
+    hideAllViews();
+    if (activeView) {
+      document.getElementById(activeView).classList.remove('hidden');
+      if (activeView === 'sceneView') document.getElementById('intensityRow').classList.remove('hidden');
+    }
+  });
+
+  hideAllViews();
+  document.getElementById('intensityRow').classList.add('hidden');
+
+  const agreeBlock = document.getElementById('agreeBlock');
+  const continueBtn = document.getElementById('onboardingContinueBtn');
+  if (requireAgreement) {
+    agreeBlock.classList.remove('hidden');
+    document.getElementById('agreeTermsCheck').checked = false;
+    continueBtn.disabled = true;
+    continueBtn.textContent = 'Continue';
+  } else {
+    agreeBlock.classList.add('hidden');
+    continueBtn.disabled = false;
+    continueBtn.textContent = 'Close';
+  }
+  document.getElementById('onboardingView').classList.remove('hidden');
+}
+
+function closeOnboarding() {
+  if (document.getElementById('onboardingContinueBtn').disabled) return;
+  localStorage.setItem(ONBOARDING_SEEN_KEY, '1');
+  document.getElementById('onboardingView').classList.add('hidden');
+  const action = onboardingReturnAction;
+  onboardingReturnAction = null;
+  if (action) action();
 }
 
 function showCreateForm() {
@@ -523,10 +651,11 @@ async function onSignedIn(user) {
   document.getElementById('accountEmail').textContent = user.email || '';
   const res = await fetch('/api/world?userId=' + encodeURIComponent(user.id), { headers: authHeaders() });
   const data = await res.json();
-  if (data.world) {
-    enterWorld(data.world);
+  const proceed = data.world ? () => enterWorld(data.world) : () => showCreateForm();
+  if (!localStorage.getItem(ONBOARDING_SEEN_KEY)) {
+    showOnboarding(proceed);
   } else {
-    document.getElementById('createForm').classList.remove('hidden');
+    proceed();
   }
 }
 
