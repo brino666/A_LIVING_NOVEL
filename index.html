@@ -231,6 +231,9 @@
             <div class="settings-row hidden" id="installRow">
               <button class="text-btn" id="installBtn" onclick="installApp()">Install app</button>
             </div>
+            <div class="settings-row hidden" id="notificationsRow">
+              <button class="text-btn" id="notificationsBtn" onclick="enablePushNotifications()">Enable notifications</button>
+            </div>
             <div class="settings-row">
               <button class="text-btn" onclick="showOnboarding()">How this works</button>
               <a class="text-btn" href="/terms.html" target="_blank" rel="noopener">Terms of Service</a>
@@ -460,11 +463,63 @@ window.addEventListener('appinstalled', () => {
   document.getElementById('installRow').classList.add('hidden');
 });
 
+// ── Push notifications ─────────────────────────────────────────────
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; i++) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+}
+
+function pushNotificationsSupported() {
+  return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+}
+
+async function enablePushNotifications() {
+  if (!pushNotificationsSupported()) { alert('Push notifications are not supported on this browser/device.'); return; }
+
+  const permission = await Notification.requestPermission();
+  if (permission !== 'granted') return;
+
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    let subscription = await registration.pushManager.getSubscription();
+    if (!subscription) {
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      });
+    }
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+    await fetch('/api/push-subscribe', {
+      method: 'POST',
+      headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+      body: JSON.stringify({ userId: currentUser.id, subscription: subscription.toJSON(), timezone }),
+    });
+    document.getElementById('notificationsRow').classList.add('hidden');
+  } catch (e) {
+    alert('Could not enable notifications: ' + e.message);
+  }
+}
+
+function updateNotificationsRowVisibility() {
+  const row = document.getElementById('notificationsRow');
+  if (pushNotificationsSupported() && Notification.permission === 'default') {
+    row.classList.remove('hidden');
+  } else {
+    row.classList.add('hidden');
+  }
+}
+
 // ── Config ──────────────────────────────────────────────────────────
 // TODO: fill in with your own Supabase project (separate from any other
 // app's project). The anon key is safe to expose client-side.
 const SUPABASE_URL = 'https://wvfrhketeiehqlhbtifc.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_HS0So4dfyL6-ef0VITbcHg_x61lYrkb';
+// Public VAPID key -- safe to expose client-side, same as the anon key above.
+const VAPID_PUBLIC_KEY = 'BEw95Pe_e3YqYyyJRku4uVM5Z025ylZLJnpy94BAw5VaQa4hlh5uVuZGdA_X3mpDVNl_qmqjejNOhltvoKvysCE';
 
 let supabaseClient = null;
 let currentUser = null;
@@ -650,6 +705,7 @@ async function onSignedIn(user) {
   currentUser = user;
   document.getElementById('authGate').classList.add('hidden');
   document.getElementById('accountEmail').textContent = user.email || '';
+  updateNotificationsRowVisibility();
   const res = await fetch('/api/world?userId=' + encodeURIComponent(user.id), { headers: authHeaders() });
   const data = await res.json();
   const proceed = data.world ? () => enterWorld(data.world) : () => showCreateForm();
