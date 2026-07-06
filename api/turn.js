@@ -143,6 +143,7 @@ export default async function handler(req, res) {
       hours_advanced: hoursAdvanced,
       narrative_priority: directorOutput.narrative_priority,
       scene_focus: directorOutput.scene_focus,
+      pacing: ['slow', 'moderate', 'fast'].includes(directorOutput.pacing) ? directorOutput.pacing : 'moderate',
       chapters_used: capCheck.newCount,
       chapter_cap: capCheck.chapterCap,
       resets_at: new Date(capCheck.resetsAt).toISOString(),

@@ -110,7 +110,13 @@
     font-family: var(--font-prose); font-size: 19px; line-height: 1.8; white-space: pre-wrap;
     margin-bottom: 28px; color: var(--text);
     letter-spacing: var(--prose-tracking); word-spacing: var(--prose-word-spacing);
+    transition: line-height .2s, word-spacing .2s;
   }
+  /* Pacing rides on top of the genre's fixed tracking -- line-height and
+     word-spacing only, not letter-spacing, which reads as a font/kerning
+     glitch rather than an intentional "slow/fast" feel at these deltas. */
+  .scene-text.pace-slow { line-height: 2.05; word-spacing: calc(var(--prose-word-spacing) + 0.05em); }
+  .scene-text.pace-fast { line-height: 1.6; word-spacing: calc(var(--prose-word-spacing) - 0.015em); }
   .scene-meta { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 10px; }
   .action-row { display: flex; gap: 8px; margin-top: 20px; }
   .action-row input { flex: 1; background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 12px 14px; font-family: var(--font-mono); font-size: 13px; }
@@ -358,7 +364,7 @@ async function takeTurn() {
     }
     if (!res.ok) throw new Error(data.error || 'Failed to continue');
     archivePastScene();
-    renderScene(data.scene, { worldTime: data.world_time });
+    renderScene(data.scene, { worldTime: data.world_time, pacing: data.pacing });
     updateChapterCapNote(data.chapters_used, data.chapter_cap, data.resets_at);
   } catch (e) {
     alert(e.message);
@@ -378,7 +384,10 @@ function archivePastScene() {
 
 function renderScene(text, opts) {
   opts = opts || {};
-  document.getElementById('sceneText').textContent = text;
+  const sceneEl = document.getElementById('sceneText');
+  sceneEl.textContent = text;
+  sceneEl.classList.remove('pace-slow', 'pace-fast');
+  if (opts.pacing === 'slow' || opts.pacing === 'fast') sceneEl.classList.add('pace-' + opts.pacing);
   document.getElementById('sceneMeta').textContent = opts.fresh ? 'Where things stand' : 'Just now';
   if (opts.worldTime) document.getElementById('worldTime').textContent = opts.worldTime;
 }
