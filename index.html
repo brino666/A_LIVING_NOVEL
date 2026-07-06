@@ -14,7 +14,7 @@
     --bg: #0c0b0a; --surface: #17140f; --surface2: #1c1811; --border: #332d24;
     --accent: #d9a35c; --text: #f2ece0; --muted: #a89e8c;
     --font-prose: 'Fraunces', serif; --font-mono: 'IBM Plex Mono', monospace;
-    --prose-tracking: 0.008em; --prose-word-spacing: 0.03em; --prose-font-size: 19px;
+    --prose-tracking: 0.008em; --prose-word-spacing: 0.03em; --prose-font-size: 1.1875rem;
   }
   :root[data-theme="light"] {
     --bg: #f3ecdd; --surface: #ffffff; --surface2: #faf5ea; --border: #c7b78d;
@@ -76,37 +76,37 @@
 
   .container { padding: 40px 6px 80px; }
   header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 20px; margin-bottom: 32px; }
-  .brand-kicker { font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--accent); }
-  .brand-title { font-family: var(--font-prose); font-size: 21px; color: var(--text); margin-top: 2px; display: none; }
+  .brand-kicker { font-size: 0.6875rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--accent); }
+  .brand-title { font-family: var(--font-prose); font-size: 1.3125rem; color: var(--text); margin-top: 2px; display: none; }
   .brand-title.visible { display: block; }
   .header-right { display: flex; align-items: center; gap: 14px; }
-  .worldtime { font-size: 12px; color: var(--muted); }
+  .worldtime { font-size: 0.75rem; color: var(--muted); }
 
   /* ── Display settings ────────────────────────────────────────────── */
   .settings-wrap { position: relative; }
-  .icon-btn { background: transparent; border: 1px solid var(--border); color: var(--muted); font-family: var(--font-mono); font-size: 11px; padding: 6px 10px; cursor: pointer; border-radius: 4px; }
+  .icon-btn { background: transparent; border: 1px solid var(--border); color: var(--muted); font-family: var(--font-mono); font-size: 0.6875rem; padding: 6px 10px; cursor: pointer; border-radius: 4px; }
   .icon-btn:hover { color: var(--text); border-color: var(--accent); }
   .settings-panel { display: none; position: absolute; top: calc(100% + 8px); right: 0; background: var(--surface2); border: 1px solid var(--border); padding: 14px; min-width: 210px; z-index: 20; box-shadow: 0 8px 24px rgba(0,0,0,.35); }
   .settings-panel.open { display: block; }
-  .settings-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+  .settings-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; font-size: 0.6875rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
   .settings-row:last-child { margin-bottom: 0; }
   .segmented { display: flex; border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
-  .segmented button { background: transparent; border: none; color: var(--muted); font-family: var(--font-mono); font-size: 11px; padding: 5px 10px; cursor: pointer; }
+  .segmented button { background: transparent; border: none; color: var(--muted); font-family: var(--font-mono); font-size: 0.6875rem; padding: 5px 10px; cursor: pointer; }
   .segmented button.active { background: var(--accent); color: #1a1206; }
 
   /* ── Auth ─────────────────────────────────────────────────────────── */
   #authGate { display: flex; flex-direction: column; gap: 12px; max-width: 360px; }
-  #authGate input { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 12px 14px; font-family: var(--font-mono); font-size: 13px; }
-  #authGate button, .btn { background: var(--accent); color: #1a1206; border: none; font-family: var(--font-mono); font-weight: 500; font-size: 13px; letter-spacing: 0.04em; padding: 14px 22px; cursor: pointer; }
+  #authGate input { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 12px 14px; font-family: var(--font-mono); font-size: 0.8125rem; }
+  #authGate button, .btn { background: var(--accent); color: #1a1206; border: none; font-family: var(--font-mono); font-weight: 500; font-size: 0.8125rem; letter-spacing: 0.04em; padding: 14px 22px; cursor: pointer; }
   #authGate button:hover, .btn:hover { opacity: 0.9; }
-  .muted-note { color: var(--muted); font-size: 12px; line-height: 1.5; }
+  .muted-note { color: var(--muted); font-size: 0.75rem; line-height: 1.5; }
 
   /* ── World creation ───────────────────────────────────────────────── */
   #createForm { display: flex; flex-direction: column; gap: 14px; }
-  #createForm label { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); display: block; margin-bottom: 6px; }
+  #createForm label { font-size: 0.6875rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); display: block; margin-bottom: 6px; }
   #createForm input, #createForm select, #createForm textarea {
     width: 100%; background: var(--surface); border: 1px solid var(--border); color: var(--text);
-    padding: 10px 12px; font-family: var(--font-mono); font-size: 13px;
+    padding: 10px 12px; font-family: var(--font-mono); font-size: 0.8125rem;
   }
   #createForm textarea { min-height: 70px; resize: vertical; }
 
@@ -122,10 +122,10 @@
      glitch rather than an intentional "slow/fast" feel at these deltas. */
   .scene-text.pace-slow { line-height: 2.05; word-spacing: calc(var(--prose-word-spacing) + 0.05em); }
   .scene-text.pace-fast { line-height: 1.6; word-spacing: calc(var(--prose-word-spacing) - 0.015em); }
-  .scene-meta { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 10px; }
+  .scene-meta { font-size: 0.6875rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 10px; }
   .action-row { display: flex; gap: 8px; margin-top: 20px; }
-  .action-row input { flex: 1; background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 12px 14px; font-family: var(--font-mono); font-size: 13px; }
-  .spinner { display: none; font-size: 12px; color: var(--muted); margin-top: 10px; }
+  .action-row input { flex: 1; background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 12px 14px; font-family: var(--font-mono); font-size: 0.8125rem; }
+  .spinner { display: none; font-size: 0.75rem; color: var(--muted); margin-top: 10px; }
   .spinner.active { display: block; }
   .past-scene {
     opacity: 0.6; font-size: calc(var(--prose-font-size) - 3px); font-family: var(--font-prose); margin-bottom: 20px;
@@ -241,7 +241,7 @@
 const THEME_KEY = 'aln_theme';
 const CONTRAST_KEY = 'aln_contrast';
 const TEXT_SIZE_KEY = 'aln_text_size';
-const TEXT_SIZES = { small: '17px', medium: '19px', large: '23px' };
+const TEXT_SIZES = { small: '1.0625rem', medium: '1.1875rem', large: '1.4375rem' };
 
 function applyTheme(theme) {
   document.documentElement.setAttribute('data-theme', theme);
