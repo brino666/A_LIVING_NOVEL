@@ -6,6 +6,7 @@
 
 import {
   sbFetch, getWorldSnapshot, getWorldById, getWorldForUser, getWorldsForUser, insertCharacter, deleteWorld,
+  updateToneSettings,
 } from '../lib/novel-engine/db.js';
 import { generateGenesis } from '../lib/novel-engine/genesis.js';
 import { requireMatchingUser } from '../lib/novel-engine/auth.js';
@@ -133,10 +134,34 @@ async function handlePost(req, res) {
   return res.status(201).json({ world: snapshot });
 }
 
+// Clamp is generous headroom, not a meaningful "level cap" -- the actual
+// effect plateaus well before this once it's pushing against content Claude
+// itself won't write. It just stops the stored number from growing unbounded.
+const INTENSITY_OFFSET_LIMIT = 10;
+
+async function handlePatch(req, res) {
+  res.setHeader('Cache-Control', 'no-store');
+  const body = req.body || {};
+  const { userId, worldId, intensityOffset } = body;
+  if (!userId || !worldId || typeof intensityOffset !== 'number' || !Number.isFinite(intensityOffset)) {
+    return res.status(400).json({ error: 'userId, worldId, and a numeric intensityOffset are required' });
+  }
+  if (!(await requireMatchingUser(req, res, userId))) return;
+
+  const world = await getWorldById(worldId);
+  if (!world || world.user_id !== userId) return res.status(404).json({ error: 'World not found' });
+
+  const clamped = Math.max(-INTENSITY_OFFSET_LIMIT, Math.min(INTENSITY_OFFSET_LIMIT, Math.trunc(intensityOffset)));
+  const toneSettings = Object.assign({}, world.tone_settings, { intensity_offset: clamped });
+  await updateToneSettings(worldId, toneSettings);
+  return res.status(200).json({ toneSettings });
+}
+
 export default async function handler(req, res) {
   try {
     if (req.method === 'GET') return await handleGet(req, res);
     if (req.method === 'POST') return await handlePost(req, res);
+    if (req.method === 'PATCH') return await handlePatch(req, res);
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (err) {
     console.error('[novel-engine/world error]', err);

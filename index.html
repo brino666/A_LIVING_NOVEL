@@ -98,6 +98,10 @@
   .segmented button { background: transparent; border: none; color: var(--muted); font-family: var(--font-mono); font-size: 0.6875rem; padding: 5px 10px; cursor: pointer; }
   .segmented button.active { background: var(--accent); color: #1a1206; }
   .settings-divider { border-top: 1px solid var(--border); margin: 10px 0; }
+  .stepper { display: flex; align-items: center; gap: 8px; }
+  .stepper button { background: transparent; border: 1px solid var(--border); color: var(--muted); font-family: var(--font-mono); font-size: 0.75rem; width: 22px; height: 22px; line-height: 1; cursor: pointer; border-radius: 4px; }
+  .stepper button:hover { color: var(--text); border-color: var(--accent); }
+  .stepper-value { min-width: 2.4em; text-align: center; color: var(--text); }
   .account-email { max-width: 105px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-transform: none; letter-spacing: 0; }
   .text-btn { background: transparent; border: none; color: #c96b5a; font-family: var(--font-mono); font-size: 0.6875rem; text-transform: uppercase; letter-spacing: .06em; cursor: pointer; padding: 0; white-space: nowrap; flex-shrink: 0; }
   .text-btn:hover { text-decoration: underline; }
@@ -191,6 +195,14 @@
                 <button id="textSizeSmallBtn" onclick="setTextSize('small')">S</button>
                 <button id="textSizeMediumBtn" onclick="setTextSize('medium')">M</button>
                 <button id="textSizeLargeBtn" onclick="setTextSize('large')">L</button>
+              </div>
+            </div>
+            <div class="settings-row hidden" id="intensityRow">
+              <span>Story intensity</span>
+              <div class="stepper">
+                <button onclick="adjustIntensity(-1)" aria-label="Less intense">&minus;</button>
+                <span class="stepper-value" id="intensityValue">Base</span>
+                <button onclick="adjustIntensity(1)" aria-label="More intense">&plus;</button>
               </div>
             </div>
             <div class="settings-divider"></div>
@@ -403,6 +415,7 @@ function hideAllViews() {
 
 function showCreateForm() {
   hideAllViews();
+  document.getElementById('intensityRow').classList.add('hidden');
   document.getElementById('createForm').classList.remove('hidden');
 }
 
@@ -412,8 +425,37 @@ async function enterWorld(snapshot) {
   showWorldTitle(currentWorld.world.title);
   hideAllViews();
   document.getElementById('sceneView').classList.remove('hidden');
+  document.getElementById('intensityRow').classList.remove('hidden');
+  updateIntensityDisplay();
   renderScene(currentWorld.storyState.last_scene_summary, { fresh: true });
   updateChapterCapNote(currentWorld.world.chapters_in_window, currentWorld.world.chapter_cap);
+}
+
+function updateIntensityDisplay() {
+  const offset = (currentWorld && currentWorld.world.tone_settings && currentWorld.world.tone_settings.intensity_offset) || 0;
+  document.getElementById('intensityValue').textContent = offset === 0 ? 'Base' : (offset > 0 ? '+' + offset : String(offset));
+}
+
+let intensityBusy = false;
+async function adjustIntensity(delta) {
+  if (!currentWorld || intensityBusy) return;
+  intensityBusy = true;
+  const current = (currentWorld.world.tone_settings && currentWorld.world.tone_settings.intensity_offset) || 0;
+  try {
+    const res = await fetch('/api/world', {
+      method: 'PATCH',
+      headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+      body: JSON.stringify({ userId: currentUser.id, worldId: currentWorld.world.id, intensityOffset: current + delta }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to update intensity');
+    currentWorld.world.tone_settings = data.toneSettings;
+    updateIntensityDisplay();
+  } catch (e) {
+    alert(e.message);
+  } finally {
+    intensityBusy = false;
+  }
 }
 
 async function openWorld(worldId) {
@@ -453,6 +495,7 @@ async function loadLibrary() {
   }
 
   hideAllViews();
+  document.getElementById('intensityRow').classList.add('hidden');
   document.getElementById('libraryView').classList.remove('hidden');
 }
 
