@@ -160,8 +160,13 @@
   .scene-meta { font-size: 0.6875rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 10px; }
   .action-tip { margin-top: 20px; padding: 10px 12px; border: 1px solid var(--border); background: var(--surface); }
   .action-tip .text-btn { margin-left: 6px; }
-  .action-row { display: flex; gap: 8px; margin-top: 12px; }
-  .action-row input { flex: 1; background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 12px 14px; font-family: var(--font-mono); font-size: 0.8125rem; }
+  .action-row { display: flex; gap: 8px; margin-top: 12px; align-items: flex-end; }
+  .action-row textarea {
+    flex: 1; background: var(--surface); border: 1px solid var(--border); color: var(--text);
+    padding: 12px 14px; font-family: var(--font-mono); font-size: 0.8125rem; line-height: 1.5;
+    resize: none; overflow: hidden; max-height: 240px; min-height: 44px;
+  }
+  .action-hint { margin-top: 6px; }
   .spinner { display: none; font-size: 0.75rem; color: var(--muted); margin-top: 10px; }
   .spinner.active { display: block; }
   .past-scene {
@@ -355,7 +360,7 @@
         <textarea id="charTraits" placeholder="A dockworker with a debt she can't explain"></textarea>
       </div>
       <button class="btn" id="createBtn" onclick="createWorld()">Begin</button>
-      <p class="spinner" id="createSpinner">Seeding your world...</p>
+      <p class="spinner" id="createSpinner">Sorry for the wait -- we're genuinely building your world from scratch, characters and all. Hang tight, it's only a moment.</p>
     </div>
 
     <div id="sceneView" class="hidden">
@@ -370,10 +375,13 @@
         days off." <button class="text-btn" onclick="dismissActionTip()">Got it</button>
       </p>
       <div class="action-row">
-        <input type="text" id="actionInput" placeholder="What do you do?" onkeydown="if(event.key==='Enter') takeTurn()">
+        <textarea id="actionInput" rows="1" placeholder="What do you do?"
+          oninput="autoGrowAction()" onfocus="expandActionBox()" onblur="collapseActionBoxIfEmpty()"
+          onkeydown="handleActionKeydown(event)"></textarea>
         <button class="btn" onclick="takeTurn()">Continue</button>
       </div>
-      <p class="spinner" id="turnSpinner">The world responds...</p>
+      <p class="muted-note action-hint hidden" id="actionHint">Write it as something you do -- e.g. "I drive to the next town" or "I stop returning his calls."</p>
+      <p class="spinner" id="turnSpinner">Sorry for the wait -- your next chapter is being written, not fetched. Hang tight, it's only a moment.</p>
       <p class="muted-note" id="chapterCapNote"></p>
     </div>
   </div>
@@ -633,6 +641,30 @@ function dismissActionTip() {
   document.getElementById('actionTip').classList.add('hidden');
 }
 
+function autoGrowAction() {
+  const el = document.getElementById('actionInput');
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 'px';
+}
+
+function expandActionBox() {
+  document.getElementById('actionHint').classList.remove('hidden');
+}
+
+function collapseActionBoxIfEmpty() {
+  const el = document.getElementById('actionInput');
+  if (!el.value.trim()) {
+    document.getElementById('actionHint').classList.add('hidden');
+  }
+}
+
+function handleActionKeydown(event) {
+  if (event.key === 'Enter' && !event.shiftKey) {
+    event.preventDefault();
+    takeTurn();
+  }
+}
+
 function updateIntensityDisplay() {
   const offset = (currentWorld && currentWorld.world.tone_settings && currentWorld.world.tone_settings.intensity_offset) || 0;
   document.getElementById('intensityValue').textContent = offset === 0 ? 'Base' : (offset > 0 ? '+' + offset : String(offset));
@@ -753,6 +785,8 @@ async function takeTurn() {
   const input = document.getElementById('actionInput');
   const action = input.value.trim();
   input.value = '';
+  input.style.height = 'auto';
+  collapseActionBoxIfEmpty();
   document.getElementById('turnSpinner').classList.add('active');
 
   try {
@@ -770,6 +804,7 @@ async function takeTurn() {
     archivePastScene();
     renderScene(data.scene, { worldTime: data.world_time, pacing: data.pacing });
     updateChapterCapNote(data.chapters_used, data.chapter_cap, data.resets_at);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   } catch (e) {
     alert(e.message);
   } finally {
