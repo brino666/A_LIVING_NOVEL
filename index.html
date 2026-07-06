@@ -145,7 +145,9 @@
   .scene-text.pace-slow { line-height: 2.05; word-spacing: calc(var(--prose-word-spacing) + 0.05em); }
   .scene-text.pace-fast { line-height: 1.6; word-spacing: calc(var(--prose-word-spacing) - 0.015em); }
   .scene-meta { font-size: 0.6875rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 10px; }
-  .action-row { display: flex; gap: 8px; margin-top: 20px; }
+  .action-tip { margin-top: 20px; padding: 10px 12px; border: 1px solid var(--border); background: var(--surface); }
+  .action-tip .text-btn { margin-left: 6px; }
+  .action-row { display: flex; gap: 8px; margin-top: 12px; }
   .action-row input { flex: 1; background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 12px 14px; font-family: var(--font-mono); font-size: 0.8125rem; }
   .spinner { display: none; font-size: 0.75rem; color: var(--muted); margin-top: 10px; }
   .spinner.active { display: block; }
@@ -271,6 +273,13 @@
       <div id="pastScenes"></div>
       <div class="scene-meta" id="sceneMeta"></div>
       <div class="scene-text" id="sceneText"></div>
+      <p class="muted-note action-tip hidden" id="actionTip">
+        Whatever you type here is read as your character's action, not a note
+        to the story. If you want to change direction -- drop a character,
+        skip town, take some time off -- write it as something you do: "I
+        stop returning his calls," "I drive to the next town," "I take a few
+        days off." <button class="text-btn" onclick="dismissActionTip()">Got it</button>
+      </p>
       <div class="action-row">
         <input type="text" id="actionInput" placeholder="What do you do?" onkeydown="if(event.key==='Enter') takeTurn()">
         <button class="btn" onclick="takeTurn()">Continue</button>
@@ -288,6 +297,7 @@
 const THEME_KEY = 'aln_theme';
 const CONTRAST_KEY = 'aln_contrast';
 const TEXT_SIZE_KEY = 'aln_text_size';
+const ACTION_TIP_DISMISSED_KEY = 'aln_action_tip_dismissed';
 const TEXT_SIZES = { small: '1.0625rem', medium: '1.1875rem', large: '1.4375rem' };
 
 function applyTheme(theme) {
@@ -427,8 +437,16 @@ async function enterWorld(snapshot) {
   document.getElementById('sceneView').classList.remove('hidden');
   document.getElementById('intensityRow').classList.remove('hidden');
   updateIntensityDisplay();
+  if (!localStorage.getItem(ACTION_TIP_DISMISSED_KEY)) {
+    document.getElementById('actionTip').classList.remove('hidden');
+  }
   renderScene(currentWorld.storyState.last_scene_summary, { fresh: true });
   updateChapterCapNote(currentWorld.world.chapters_in_window, currentWorld.world.chapter_cap);
+}
+
+function dismissActionTip() {
+  localStorage.setItem(ACTION_TIP_DISMISSED_KEY, '1');
+  document.getElementById('actionTip').classList.add('hidden');
 }
 
 function updateIntensityDisplay() {
