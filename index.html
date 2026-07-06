@@ -14,14 +14,17 @@
     --bg: #0c0b0a; --surface: #17140f; --surface2: #1c1811; --border: #332d24;
     --accent: #d9a35c; --text: #f2ece0; --muted: #a89e8c;
     --font-prose: 'Fraunces', serif; --font-mono: 'IBM Plex Mono', monospace;
-    --prose-tracking: 0.008em; --prose-word-spacing: 0.03em;
+    --prose-tracking: 0.008em; --prose-word-spacing: 0.03em; --prose-font-size: 19px;
   }
   :root[data-theme="light"] {
-    --bg: #f3ecdd; --surface: #ffffff; --surface2: #faf5ea; --border: #ddcfae;
-    --accent: #a8631f; --text: #241d12; --muted: #6f6650;
+    --bg: #f3ecdd; --surface: #ffffff; --surface2: #faf5ea; --border: #c7b78d;
+    --accent: #8f4f18; --text: #14100a; --muted: #55492f;
   }
-  :root[data-contrast="high"] { --text: #ffffff; --muted: #d9d2c2; --border: #4a4030; }
-  :root[data-theme="light"][data-contrast="high"] { --text: #000000; --muted: #3a3323; --border: #b8ab84; }
+  :root[data-contrast="high"] { --text: #ffffff; --muted: #e3ddce; --border: #5c503c; }
+  :root[data-theme="light"][data-contrast="high"] { --text: #000000; --muted: #2e2818; --border: #a8966b; }
+  [data-contrast="high"] .muted-note, [data-contrast="high"] .scene-meta, [data-contrast="high"] label {
+    font-weight: 600;
+  }
 
   body { background: var(--bg); color: var(--text); font-family: var(--font-mono); min-height: 100vh; }
   .hidden { display: none !important; }
@@ -73,7 +76,9 @@
 
   .container { padding: 40px 6px 80px; }
   header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 20px; margin-bottom: 32px; }
-  .brand { font-size: 13px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--accent); }
+  .brand-kicker { font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--accent); }
+  .brand-title { font-family: var(--font-prose); font-size: 21px; color: var(--text); margin-top: 2px; display: none; }
+  .brand-title.visible { display: block; }
   .header-right { display: flex; align-items: center; gap: 14px; }
   .worldtime { font-size: 12px; color: var(--muted); }
 
@@ -107,10 +112,10 @@
 
   /* ── Scene ────────────────────────────────────────────────────────── */
   .scene-text {
-    font-family: var(--font-prose); font-size: 19px; line-height: 1.8; white-space: pre-wrap;
+    font-family: var(--font-prose); font-size: var(--prose-font-size); line-height: 1.8; white-space: pre-wrap;
     margin-bottom: 28px; color: var(--text);
     letter-spacing: var(--prose-tracking); word-spacing: var(--prose-word-spacing);
-    transition: line-height .2s, word-spacing .2s;
+    transition: line-height .2s, word-spacing .2s, font-size .15s;
   }
   /* Pacing rides on top of the genre's fixed tracking -- line-height and
      word-spacing only, not letter-spacing, which reads as a font/kerning
@@ -123,7 +128,7 @@
   .spinner { display: none; font-size: 12px; color: var(--muted); margin-top: 10px; }
   .spinner.active { display: block; }
   .past-scene {
-    opacity: 0.6; font-size: 16px; font-family: var(--font-prose); margin-bottom: 20px;
+    opacity: 0.6; font-size: calc(var(--prose-font-size) - 3px); font-family: var(--font-prose); margin-bottom: 20px;
     padding-bottom: 20px; border-bottom: 1px dashed var(--border);
     letter-spacing: var(--prose-tracking); word-spacing: var(--prose-word-spacing);
   }
@@ -139,7 +144,10 @@
 
   <div class="container">
     <header>
-      <div class="brand">A Living Novel</div>
+      <div>
+        <div class="brand-kicker">A Living Novel</div>
+        <div class="brand-title" id="brandTitle"></div>
+      </div>
       <div class="header-right">
         <div class="worldtime" id="worldTime"></div>
         <div class="settings-wrap" id="settingsWrap">
@@ -157,6 +165,14 @@
               <div class="segmented">
                 <button id="contrastNormalBtn" onclick="setContrast('normal')">Normal</button>
                 <button id="contrastHighBtn" onclick="setContrast('high')">High</button>
+              </div>
+            </div>
+            <div class="settings-row">
+              <span>Text size</span>
+              <div class="segmented">
+                <button id="textSizeSmallBtn" onclick="setTextSize('small')">S</button>
+                <button id="textSizeMediumBtn" onclick="setTextSize('medium')">M</button>
+                <button id="textSizeLargeBtn" onclick="setTextSize('large')">L</button>
               </div>
             </div>
           </div>
@@ -224,6 +240,8 @@
 // ── Display preferences (theme / contrast / genre ambiance) ──────────
 const THEME_KEY = 'aln_theme';
 const CONTRAST_KEY = 'aln_contrast';
+const TEXT_SIZE_KEY = 'aln_text_size';
+const TEXT_SIZES = { small: '17px', medium: '19px', large: '23px' };
 
 function applyTheme(theme) {
   document.documentElement.setAttribute('data-theme', theme);
@@ -239,6 +257,14 @@ function applyContrast(level) {
   document.getElementById('contrastHighBtn').classList.toggle('active', level === 'high');
 }
 function setContrast(level) { localStorage.setItem(CONTRAST_KEY, level); applyContrast(level); }
+
+function applyTextSize(size) {
+  document.documentElement.style.setProperty('--prose-font-size', TEXT_SIZES[size] || TEXT_SIZES.medium);
+  ['small', 'medium', 'large'].forEach((s) => {
+    document.getElementById('textSize' + s[0].toUpperCase() + s.slice(1) + 'Btn').classList.toggle('active', s === size);
+  });
+}
+function setTextSize(size) { localStorage.setItem(TEXT_SIZE_KEY, size); applyTextSize(size); }
 
 function toggleSettingsPanel() { document.getElementById('settingsPanel').classList.toggle('open'); }
 document.addEventListener('click', (e) => {
@@ -257,8 +283,15 @@ function applyGenreClass(genre) {
   const theme = storedTheme || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
   applyTheme(theme);
   applyContrast(localStorage.getItem(CONTRAST_KEY) || 'normal');
+  applyTextSize(localStorage.getItem(TEXT_SIZE_KEY) || 'medium');
   applyGenreClass('literary');
 })();
+
+function showWorldTitle(title) {
+  const el = document.getElementById('brandTitle');
+  el.textContent = title;
+  el.classList.add('visible');
+}
 
 // ── Config ──────────────────────────────────────────────────────────
 // TODO: fill in with your own Supabase project (separate from any other
@@ -300,6 +333,7 @@ async function onSignedIn(user) {
   if (data.world) {
     currentWorld = data.world;
     applyGenreClass(currentWorld.world.genre);
+    showWorldTitle(currentWorld.world.title);
     renderScene(currentWorld.storyState.last_scene_summary, { fresh: true });
     document.getElementById('sceneView').classList.remove('hidden');
     updateChapterCapNote(currentWorld.world.chapters_in_window, currentWorld.world.chapter_cap);
@@ -334,6 +368,7 @@ async function createWorld() {
     if (!res.ok) throw new Error(data.error || 'Failed to create world');
     currentWorld = data.world;
     applyGenreClass(currentWorld.world.genre);
+    showWorldTitle(currentWorld.world.title);
     document.getElementById('createForm').classList.add('hidden');
     document.getElementById('sceneView').classList.remove('hidden');
     renderScene(currentWorld.storyState.last_scene_summary, { fresh: true });
