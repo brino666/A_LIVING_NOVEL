@@ -168,6 +168,19 @@
   }
   .action-hint { margin-top: 6px; }
   .spinner { display: none; font-size: 0.75rem; color: var(--muted); margin-top: 10px; }
+  #downloadStoryBtn { display: block; margin-top: 16px; }
+
+  /* ── Save-before-continue prompt ─────────────────────────────────── */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+    display: flex; align-items: center; justify-content: center; z-index: 50; padding: 20px;
+  }
+  .modal-box {
+    background: var(--surface2); border: 1px solid var(--border); padding: 20px;
+    max-width: 420px; font-size: 0.8125rem; line-height: 1.6; color: var(--text);
+  }
+  .modal-box .agree-row { margin-top: 14px; }
+  .modal-actions { display: flex; align-items: center; gap: 16px; margin-top: 16px; }
   .spinner.active { display: block; }
   .past-scene {
     opacity: 0.6; font-size: calc(var(--prose-font-size) - 3px); font-family: var(--font-prose); margin-bottom: 20px;
@@ -378,11 +391,28 @@
         <textarea id="actionInput" rows="1" placeholder="What do you do?"
           oninput="autoGrowAction()" onfocus="expandActionBox()" onblur="collapseActionBoxIfEmpty()"
           onkeydown="handleActionKeydown(event)"></textarea>
-        <button class="btn" onclick="takeTurn()">Continue</button>
+        <button class="btn" onclick="confirmContinue()">Continue</button>
       </div>
       <p class="muted-note action-hint hidden" id="actionHint">Write it as something you do -- e.g. "I drive to the next town" or "I stop returning his calls."</p>
       <p class="spinner" id="turnSpinner">Sorry for the wait -- your next chapter is being written, not fetched. Hang tight, it's only a moment.</p>
       <p class="muted-note" id="chapterCapNote"></p>
+      <button class="text-btn" id="downloadStoryBtn" onclick="downloadStory()">Download your story so far</button>
+    </div>
+  </div>
+
+  <div id="savePromptOverlay" class="hidden modal-overlay">
+    <div class="modal-box">
+      <p>Continuing replaces the oldest chapter still on hand -- once you move
+      on, it's gone unless you save it now. We don't keep a full archive of
+      your story, so this is your chance.</p>
+      <label class="agree-row">
+        <input type="checkbox" id="skipSavePromptCheck">
+        Don't ask me this again
+      </label>
+      <div class="modal-actions">
+        <button class="btn" onclick="downloadThenContinue()">Download &amp; continue</button>
+        <button class="text-btn" onclick="continueWithoutSaving()">Continue without saving</button>
+      </div>
     </div>
   </div>
 
@@ -632,7 +662,18 @@ async function enterWorld(snapshot) {
   if (!localStorage.getItem(ACTION_TIP_DISMISSED_KEY)) {
     document.getElementById('actionTip').classList.remove('hidden');
   }
-  renderScene(currentWorld.storyState.last_scene_summary, { fresh: true });
+  document.getElementById('pastScenes').innerHTML = '';
+  const previousChapter = currentWorld.storyState ? currentWorld.storyState.previous_chapter_text : null;
+  if (previousChapter) {
+    const div = document.createElement('div');
+    div.className = 'past-scene';
+    div.textContent = previousChapter;
+    document.getElementById('pastScenes').appendChild(div);
+  }
+  const lastChapterText = currentWorld.storyState
+    ? (currentWorld.storyState.last_chapter_text || currentWorld.storyState.last_scene_summary)
+    : '';
+  renderScene(lastChapterText, { fresh: true });
   updateChapterCapNote(currentWorld.world.chapters_in_window, currentWorld.world.chapter_cap);
 }
 
@@ -661,8 +702,57 @@ function collapseActionBoxIfEmpty() {
 function handleActionKeydown(event) {
   if (event.key === 'Enter' && !event.shiftKey) {
     event.preventDefault();
-    takeTurn();
+    confirmContinue();
   }
+}
+
+const SKIP_SAVE_PROMPT_KEY = 'aln_skip_save_prompt';
+
+function confirmContinue() {
+  if (localStorage.getItem(SKIP_SAVE_PROMPT_KEY)) {
+    takeTurn();
+    return;
+  }
+  document.getElementById('savePromptOverlay').classList.remove('hidden');
+}
+
+function closeSavePrompt() {
+  if (document.getElementById('skipSavePromptCheck').checked) {
+    localStorage.setItem(SKIP_SAVE_PROMPT_KEY, '1');
+  }
+  document.getElementById('savePromptOverlay').classList.add('hidden');
+}
+
+function downloadThenContinue() {
+  downloadStory();
+  closeSavePrompt();
+  takeTurn();
+}
+
+function continueWithoutSaving() {
+  closeSavePrompt();
+  takeTurn();
+}
+
+function downloadStory() {
+  const pastText = Array.from(document.querySelectorAll('#pastScenes .past-scene'))
+    .reverse()
+    .map((div) => div.textContent);
+  const currentText = document.getElementById('sceneText').textContent;
+  const parts = currentText ? pastText.concat([currentText]) : pastText;
+  if (!parts.length) return;
+
+  const title = (currentWorld && currentWorld.world.title) || 'A Living Novel';
+  const body = title + '\n\n' + parts.join('\n\n---\n\n');
+  const blob = new Blob([body], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = title.replace(/[^a-z0-9]+/gi, '_').replace(/^_+|_+$/g, '') + '.txt';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 }
 
 function updateIntensityDisplay() {

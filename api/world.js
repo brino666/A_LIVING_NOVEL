@@ -109,6 +109,7 @@ async function handlePost(req, res) {
         active_hooks: genesis.active_hooks,
         narrative_pressure: 0.2,
         last_scene_summary: genesis.opening_scene_seed,
+        last_chapter_text: genesis.opening_scene_seed,
       }),
     });
 
