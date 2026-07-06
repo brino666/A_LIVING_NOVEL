@@ -1,8 +1,11 @@
 // api/world.js
-// Create or fetch the reader's world. V1 is one world per user.
+// Create or fetch a reader's world. Each world is its own subscription --
+// there's no per-account world limit tied to a plan (no billing exists yet
+// to enforce that), only a flat abuse-guard cap. See api/worlds.js for the
+// library listing endpoint.
 
 import {
-  sbFetch, getWorldSnapshot, getWorldForUser, insertCharacter, deleteWorld,
+  sbFetch, getWorldSnapshot, getWorldById, getWorldForUser, getWorldsForUser, insertCharacter, deleteWorld,
 } from '../lib/novel-engine/db.js';
 import { generateGenesis } from '../lib/novel-engine/genesis.js';
 import { requireMatchingUser } from '../lib/novel-engine/auth.js';
@@ -13,13 +16,25 @@ import { maybeRunPassiveTicks } from '../lib/novel-engine/passiveTick.js';
 // run past Vercel's default 10s function timeout.
 export const config = { maxDuration: 120 };
 
+// Pure abuse guard, not a monetization control -- there's no billing system
+// yet to actually enforce "pay per world," so this just stops runaway
+// creation (each one runs a real genesis LLM call) until that exists.
+const MAX_WORLDS_PER_USER = 10;
+
 async function handleGet(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   const userId = req.query.userId;
+  const worldId = req.query.worldId;
   if (!userId) return res.status(400).json({ error: 'userId is required' });
   if (!(await requireMatchingUser(req, res, userId))) return;
 
-  const world = await getWorldForUser(userId);
+  let world;
+  if (worldId) {
+    world = await getWorldById(worldId);
+    if (!world || world.user_id !== userId) return res.status(404).json({ error: 'World not found' });
+  } else {
+    world = await getWorldForUser(userId); // convenience default: most recently created
+  }
   if (!world) return res.status(200).json({ world: null });
 
   // Catches the world up through any real-world gap since the reader's
@@ -38,9 +53,9 @@ async function handlePost(req, res) {
   }
   if (!(await requireMatchingUser(req, res, userId))) return;
 
-  const existing = await getWorldForUser(userId);
-  if (existing) {
-    return res.status(409).json({ error: 'This user already has a world.', worldId: existing.id });
+  const existingWorlds = await getWorldsForUser(userId);
+  if (existingWorlds.length >= MAX_WORLDS_PER_USER) {
+    return res.status(429).json({ error: 'You have reached the maximum number of worlds for now.' });
   }
 
   const [world] = await sbFetch('/worlds', {

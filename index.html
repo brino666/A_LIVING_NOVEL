@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>A Living Novel</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" href="/icons/icon-192.png">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<meta name="theme-color" content="#0c0b0a">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;600&family=IBM+Plex+Mono:wght@400;500&family=Special+Elite&family=Cinzel:wght@400;600&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Orbitron:wght@400;600&display=swap" rel="stylesheet">
 <style>
@@ -114,6 +118,16 @@
   }
   #createForm textarea { min-height: 70px; resize: vertical; }
 
+  /* ── Library ──────────────────────────────────────────────────────── */
+  #libraryView { display: flex; flex-direction: column; gap: 14px; }
+  .library-item {
+    display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    padding: 14px 16px; border: 1px solid var(--border); background: var(--surface); cursor: pointer;
+  }
+  .library-item:hover { border-color: var(--accent); }
+  .library-item-title { font-family: var(--font-prose); font-size: 1.1rem; color: var(--text); }
+  .library-item-meta { font-size: 0.6875rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; white-space: nowrap; }
+
   /* ── Scene ────────────────────────────────────────────────────────── */
   .scene-text {
     font-family: var(--font-prose); font-size: var(--prose-font-size); line-height: 1.8; white-space: pre-wrap;
@@ -181,8 +195,11 @@
             </div>
             <div class="settings-divider"></div>
             <div class="settings-row">
-              <span class="account-email" id="accountEmail"></span>
+              <button class="text-btn" id="libraryLinkBtn" onclick="loadLibrary()">My Library</button>
               <button class="text-btn" onclick="signOut()">Sign out</button>
+            </div>
+            <div class="settings-row">
+              <span class="account-email" id="accountEmail"></span>
             </div>
           </div>
         </div>
@@ -194,6 +211,12 @@
       <input type="email" id="authEmail" placeholder="you@example.com">
       <button id="authSendBtn" onclick="sendMagicLink()">Send sign-in link</button>
       <p class="muted-note" id="authStatus"></p>
+    </div>
+
+    <div id="libraryView" class="hidden">
+      <p class="muted-note">Your library.</p>
+      <div id="libraryList"></div>
+      <button class="btn" onclick="showCreateForm()">+ Start a new story</button>
     </div>
 
     <div id="createForm" class="hidden">
@@ -347,6 +370,65 @@ async function sendMagicLink() {
   document.getElementById('authStatus').textContent = error ? error.message : 'Check your email for the sign-in link.';
 }
 
+function hideAllViews() {
+  ['libraryView', 'createForm', 'sceneView'].forEach((id) => document.getElementById(id).classList.add('hidden'));
+}
+
+function showCreateForm() {
+  hideAllViews();
+  document.getElementById('createForm').classList.remove('hidden');
+}
+
+async function enterWorld(snapshot) {
+  currentWorld = snapshot;
+  applyGenreClass(currentWorld.world.genre);
+  showWorldTitle(currentWorld.world.title);
+  hideAllViews();
+  document.getElementById('sceneView').classList.remove('hidden');
+  renderScene(currentWorld.storyState.last_scene_summary, { fresh: true });
+  updateChapterCapNote(currentWorld.world.chapters_in_window, currentWorld.world.chapter_cap);
+}
+
+async function openWorld(worldId) {
+  const res = await fetch(
+    '/api/world?userId=' + encodeURIComponent(currentUser.id) + '&worldId=' + encodeURIComponent(worldId),
+    { headers: authHeaders() },
+  );
+  const data = await res.json();
+  if (!data.world) { alert('Could not load that world.'); return; }
+  enterWorld(data.world);
+}
+
+async function loadLibrary() {
+  document.getElementById('settingsPanel').classList.remove('open');
+  const res = await fetch('/api/worlds?userId=' + encodeURIComponent(currentUser.id), { headers: authHeaders() });
+  const data = await res.json();
+  const worlds = data.worlds || [];
+
+  const list = document.getElementById('libraryList');
+  list.innerHTML = '';
+  for (const w of worlds) {
+    const item = document.createElement('div');
+    item.className = 'library-item';
+    item.onclick = () => openWorld(w.id);
+
+    const title = document.createElement('div');
+    title.className = 'library-item-title';
+    title.textContent = w.title;
+
+    const meta = document.createElement('div');
+    meta.className = 'library-item-meta';
+    meta.textContent = w.genre;
+
+    item.appendChild(title);
+    item.appendChild(meta);
+    list.appendChild(item);
+  }
+
+  hideAllViews();
+  document.getElementById('libraryView').classList.remove('hidden');
+}
+
 async function onSignedIn(user) {
   currentUser = user;
   document.getElementById('authGate').classList.add('hidden');
@@ -354,12 +436,7 @@ async function onSignedIn(user) {
   const res = await fetch('/api/world?userId=' + encodeURIComponent(user.id), { headers: authHeaders() });
   const data = await res.json();
   if (data.world) {
-    currentWorld = data.world;
-    applyGenreClass(currentWorld.world.genre);
-    showWorldTitle(currentWorld.world.title);
-    renderScene(currentWorld.storyState.last_scene_summary, { fresh: true });
-    document.getElementById('sceneView').classList.remove('hidden');
-    updateChapterCapNote(currentWorld.world.chapters_in_window, currentWorld.world.chapter_cap);
+    enterWorld(data.world);
   } else {
     document.getElementById('createForm').classList.remove('hidden');
   }
@@ -389,12 +466,7 @@ async function createWorld() {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Failed to create world');
-    currentWorld = data.world;
-    applyGenreClass(currentWorld.world.genre);
-    showWorldTitle(currentWorld.world.title);
-    document.getElementById('createForm').classList.add('hidden');
-    document.getElementById('sceneView').classList.remove('hidden');
-    renderScene(currentWorld.storyState.last_scene_summary, { fresh: true });
+    await enterWorld(data.world);
   } catch (e) {
     alert(e.message);
   } finally {

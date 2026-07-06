@@ -1,0 +1,13 @@
+{
+  "name": "A Living Novel",
+  "short_name": "Living Novel",
+  "description": "A world that continues without you.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0c0b0a",
+  "theme_color": "#0c0b0a",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
