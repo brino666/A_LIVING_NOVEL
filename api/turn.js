@@ -14,9 +14,9 @@ import { evaluateChapterCap } from '../lib/novel-engine/chapters.js';
 import { applyDirectorUpdates } from '../lib/novel-engine/directorApply.js';
 import { requireMatchingUser } from '../lib/novel-engine/auth.js';
 
-// Full-length chapters (~2500 words) push the Director + Writer chain well
-// past a minute -- Vercel's Hobby plan hard-caps functions at 60s regardless
-// of this setting; this app needs a paid plan once chapters are this long.
+// The Director + Writer chain can still run past a minute even at the
+// shorter 1500-1800 word target -- Vercel's Hobby plan hard-caps functions
+// at 60s regardless of this setting, so a paid plan is the safe assumption.
 export const config = { maxDuration: 120 };
 
 export default async function handler(req, res) {
