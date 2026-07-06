@@ -5,20 +5,26 @@ import {
   sbFetch, getWorldSnapshot, getWorldForUser, insertCharacter, deleteWorld,
 } from '../lib/novel-engine/db.js';
 import { generateGenesis } from '../lib/novel-engine/genesis.js';
+import { requireMatchingUser } from '../lib/novel-engine/auth.js';
+import { maybeRunPassiveTicks } from '../lib/novel-engine/passiveTick.js';
 
-// World creation runs a genesis LLM call plus several sequential inserts --
-// can run past Vercel's default 10s function timeout.
-export const config = { maxDuration: 60 };
+// World creation runs a genesis LLM call plus several sequential inserts;
+// a GET can now also run up to a few passive-tick Director calls. Both can
+// run past Vercel's default 10s function timeout.
+export const config = { maxDuration: 120 };
 
 async function handleGet(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   const userId = req.query.userId;
   if (!userId) return res.status(400).json({ error: 'userId is required' });
+  if (!(await requireMatchingUser(req, res, userId))) return;
 
   const world = await getWorldForUser(userId);
   if (!world) return res.status(200).json({ world: null });
 
-  const snapshot = await getWorldSnapshot(world.id);
+  // Catches the world up through any real-world gap since the reader's
+  // last visit -- silently, before they see anything. See passiveTick.js.
+  const snapshot = await maybeRunPassiveTicks(world.id);
   return res.status(200).json({ world: snapshot });
 }
 
@@ -30,6 +36,7 @@ async function handlePost(req, res) {
   if (!userId || !title || !userCharacter || !userCharacter.name) {
     return res.status(400).json({ error: 'userId, title, and userCharacter.name are required' });
   }
+  if (!(await requireMatchingUser(req, res, userId))) return;
 
   const existing = await getWorldForUser(userId);
   if (existing) {

@@ -86,13 +86,17 @@
   .settings-wrap { position: relative; }
   .icon-btn { background: transparent; border: 1px solid var(--border); color: var(--muted); font-family: var(--font-mono); font-size: 0.6875rem; padding: 6px 10px; cursor: pointer; border-radius: 4px; }
   .icon-btn:hover { color: var(--text); border-color: var(--accent); }
-  .settings-panel { display: none; position: absolute; top: calc(100% + 8px); right: 0; background: var(--surface2); border: 1px solid var(--border); padding: 14px; min-width: 210px; z-index: 20; box-shadow: 0 8px 24px rgba(0,0,0,.35); }
+  .settings-panel { display: none; position: absolute; top: calc(100% + 8px); right: 0; background: var(--surface2); border: 1px solid var(--border); padding: 14px; min-width: 230px; z-index: 20; box-shadow: 0 8px 24px rgba(0,0,0,.35); }
   .settings-panel.open { display: block; }
   .settings-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; font-size: 0.6875rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
   .settings-row:last-child { margin-bottom: 0; }
   .segmented { display: flex; border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
   .segmented button { background: transparent; border: none; color: var(--muted); font-family: var(--font-mono); font-size: 0.6875rem; padding: 5px 10px; cursor: pointer; }
   .segmented button.active { background: var(--accent); color: #1a1206; }
+  .settings-divider { border-top: 1px solid var(--border); margin: 10px 0; }
+  .account-email { max-width: 105px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-transform: none; letter-spacing: 0; }
+  .text-btn { background: transparent; border: none; color: #c96b5a; font-family: var(--font-mono); font-size: 0.6875rem; text-transform: uppercase; letter-spacing: .06em; cursor: pointer; padding: 0; white-space: nowrap; flex-shrink: 0; }
+  .text-btn:hover { text-decoration: underline; }
 
   /* ── Auth ─────────────────────────────────────────────────────────── */
   #authGate { display: flex; flex-direction: column; gap: 12px; max-width: 360px; }
@@ -174,6 +178,11 @@
                 <button id="textSizeMediumBtn" onclick="setTextSize('medium')">M</button>
                 <button id="textSizeLargeBtn" onclick="setTextSize('large')">L</button>
               </div>
+            </div>
+            <div class="settings-divider"></div>
+            <div class="settings-row">
+              <span class="account-email" id="accountEmail"></span>
+              <button class="text-btn" onclick="signOut()">Sign out</button>
             </div>
           </div>
         </div>
@@ -301,21 +310,34 @@ const SUPABASE_ANON_KEY = 'sb_publishable_HS0So4dfyL6-ef0VITbcHg_x61lYrkb';
 
 let supabaseClient = null;
 let currentUser = null;
+let currentAccessToken = null;
 let currentWorld = null; // full snapshot: { world, storyState, userCharacter, characters, locations, events }
+
+// The server verifies this token against the userId on every request --
+// without it, /api/world and /api/turn reject the request outright.
+function authHeaders() {
+  return currentAccessToken ? { 'Authorization': 'Bearer ' + currentAccessToken } : {};
+}
 
 (async function initAuth() {
   try {
     const { createClient } = supabase;
     supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     const { data: { session } } = await supabaseClient.auth.getSession();
-    if (session && session.user) { onSignedIn(session.user); }
+    if (session && session.user) { currentAccessToken = session.access_token; onSignedIn(session.user); }
     supabaseClient.auth.onAuthStateChange((event, session) => {
+      if (session) currentAccessToken = session.access_token;
       if (event === 'SIGNED_IN' && session && session.user) onSignedIn(session.user);
+      if (event === 'SIGNED_OUT') location.reload();
     });
   } catch (e) {
     document.getElementById('authStatus').textContent = 'Auth unavailable -- check Supabase config.';
   }
 })();
+
+async function signOut() {
+  await supabaseClient.auth.signOut();
+}
 
 async function sendMagicLink() {
   const email = document.getElementById('authEmail').value.trim();
@@ -328,7 +350,8 @@ async function sendMagicLink() {
 async function onSignedIn(user) {
   currentUser = user;
   document.getElementById('authGate').classList.add('hidden');
-  const res = await fetch('/api/world?userId=' + encodeURIComponent(user.id));
+  document.getElementById('accountEmail').textContent = user.email || '';
+  const res = await fetch('/api/world?userId=' + encodeURIComponent(user.id), { headers: authHeaders() });
   const data = await res.json();
   if (data.world) {
     currentWorld = data.world;
@@ -356,7 +379,7 @@ async function createWorld() {
   try {
     const res = await fetch('/api/world', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
       body: JSON.stringify({
         userId: currentUser.id,
         title, genre,
@@ -389,7 +412,7 @@ async function takeTurn() {
   try {
     const res = await fetch('/api/turn', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
       body: JSON.stringify({ userId: currentUser.id, worldId: currentWorld.world.id, userAction: action || null }),
     });
     const data = await res.json();
