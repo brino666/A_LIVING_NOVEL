@@ -5,30 +5,83 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>A Living Novel</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;600&family=IBM+Plex+Mono:wght@400;500&family=Special+Elite&family=Cinzel:wght@400;600&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Orbitron:wght@400;600&display=swap" rel="stylesheet">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  /* ── Theme + contrast ────────────────────────────────────────────── */
   :root {
-    --bg: #0c0b0a; --surface: #16140f; --border: #2a2620;
-    --accent: #d9a35c; --text: #ece6da; --muted: #8a8375;
+    --bg: #0c0b0a; --surface: #17140f; --surface2: #1c1811; --border: #332d24;
+    --accent: #d9a35c; --text: #f2ece0; --muted: #a89e8c;
     --font-prose: 'Fraunces', serif; --font-mono: 'IBM Plex Mono', monospace;
   }
-  body { background: var(--bg); color: var(--text); font-family: var(--font-mono); min-height: 100vh; }
-  .container { max-width: 720px; margin: 0 auto; padding: 40px 24px 80px; }
-  header { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid var(--border); padding-bottom: 20px; margin-bottom: 32px; }
-  .brand { font-size: 13px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--accent); }
-  .worldtime { font-size: 12px; color: var(--muted); }
+  :root[data-theme="light"] {
+    --bg: #f3ecdd; --surface: #ffffff; --surface2: #faf5ea; --border: #ddcfae;
+    --accent: #a8631f; --text: #241d12; --muted: #6f6650;
+  }
+  :root[data-contrast="high"] { --text: #ffffff; --muted: #d9d2c2; --border: #4a4030; }
+  :root[data-theme="light"][data-contrast="high"] { --text: #000000; --muted: #3a3323; --border: #b8ab84; }
 
+  body { background: var(--bg); color: var(--text); font-family: var(--font-mono); min-height: 100vh; }
   .hidden { display: none !important; }
 
-  /* auth */
+  /* ── Decorative frame (genre-matched) ───────────────────────────── */
+  .novel-frame { position: relative; max-width: 760px; margin: 0 auto; padding: 0 18px; }
+  .corner { position: absolute; width: 22px; height: 22px; border-color: var(--accent); opacity: .55; pointer-events: none; }
+  .corner-tl { top: 6px; left: 6px; border-top: 2px solid; border-left: 2px solid; }
+  .corner-tr { top: 6px; right: 6px; border-top: 2px solid; border-right: 2px solid; }
+  .corner-bl { bottom: 6px; left: 6px; border-bottom: 2px solid; border-left: 2px solid; }
+  .corner-br { bottom: 6px; right: 6px; border-bottom: 2px solid; border-right: 2px solid; }
+  .frame-band { height: 12px; margin: 0 22px; opacity: .65; background-repeat: repeat-x; background-size: auto 100%; }
+
+  #novelFrame.genre-literary .frame-band, #novelFrame:not([class*="genre-"]) .frame-band {
+    background-image: repeating-linear-gradient(90deg, var(--accent) 0 2px, transparent 2px 10px);
+  }
+  #novelFrame.genre-mystery .frame-band, #novelFrame.genre-thriller .frame-band {
+    background-image: repeating-linear-gradient(45deg, rgba(124,138,114,.9) 0 1px, transparent 1px 7px);
+  }
+  #novelFrame.genre-fantasy .frame-band {
+    background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='42'%20height='14'%3E%3Cpath%20d='M0%207%20Q10%201%2021%207%20T42%207'%20stroke='rgb(155,125,58)'%20stroke-width='1.6'%20fill='none'/%3E%3C/svg%3E");
+  }
+  #novelFrame.genre-romance .frame-band {
+    background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='42'%20height='14'%3E%3Cpath%20d='M0%207%20Q10%201%2021%207%20T42%207'%20stroke='rgb(181,101,124)'%20stroke-width='1.6'%20fill='none'/%3E%3C/svg%3E");
+  }
+  #novelFrame.genre-sci-fi .frame-band {
+    background-image: repeating-linear-gradient(90deg, rgba(74,143,160,.9) 0 2px, transparent 2px 9px);
+  }
+
+  #novelFrame.genre-mystery, #novelFrame.genre-thriller { --font-prose: 'Special Elite', monospace; }
+  #novelFrame.genre-fantasy { --font-prose: 'Cinzel', serif; }
+  #novelFrame.genre-romance { --font-prose: 'Cormorant Garamond', serif; }
+  #novelFrame.genre-sci-fi  { --font-prose: 'Orbitron', sans-serif; }
+  #novelFrame.genre-literary { --font-prose: 'Fraunces', serif; }
+
+  .container { padding: 40px 6px 80px; }
+  header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 20px; margin-bottom: 32px; }
+  .brand { font-size: 13px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--accent); }
+  .header-right { display: flex; align-items: center; gap: 14px; }
+  .worldtime { font-size: 12px; color: var(--muted); }
+
+  /* ── Display settings ────────────────────────────────────────────── */
+  .settings-wrap { position: relative; }
+  .icon-btn { background: transparent; border: 1px solid var(--border); color: var(--muted); font-family: var(--font-mono); font-size: 11px; padding: 6px 10px; cursor: pointer; border-radius: 4px; }
+  .icon-btn:hover { color: var(--text); border-color: var(--accent); }
+  .settings-panel { display: none; position: absolute; top: calc(100% + 8px); right: 0; background: var(--surface2); border: 1px solid var(--border); padding: 14px; min-width: 210px; z-index: 20; box-shadow: 0 8px 24px rgba(0,0,0,.35); }
+  .settings-panel.open { display: block; }
+  .settings-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+  .settings-row:last-child { margin-bottom: 0; }
+  .segmented { display: flex; border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+  .segmented button { background: transparent; border: none; color: var(--muted); font-family: var(--font-mono); font-size: 11px; padding: 5px 10px; cursor: pointer; }
+  .segmented button.active { background: var(--accent); color: #1a1206; }
+
+  /* ── Auth ─────────────────────────────────────────────────────────── */
   #authGate { display: flex; flex-direction: column; gap: 12px; max-width: 360px; }
   #authGate input { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 12px 14px; font-family: var(--font-mono); font-size: 13px; }
-  #authGate button, .btn { background: var(--accent); color: #1a1206; border: none; font-family: var(--font-mono); font-weight: 500; font-size: 13px; letter-spacing: 0.04em; padding: 12px 20px; cursor: pointer; }
+  #authGate button, .btn { background: var(--accent); color: #1a1206; border: none; font-family: var(--font-mono); font-weight: 500; font-size: 13px; letter-spacing: 0.04em; padding: 14px 22px; cursor: pointer; }
   #authGate button:hover, .btn:hover { opacity: 0.9; }
   .muted-note { color: var(--muted); font-size: 12px; line-height: 1.5; }
 
-  /* world creation */
+  /* ── World creation ───────────────────────────────────────────────── */
   #createForm { display: flex; flex-direction: column; gap: 14px; }
   #createForm label { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); display: block; margin-bottom: 6px; }
   #createForm input, #createForm select, #createForm textarea {
@@ -37,77 +90,147 @@
   }
   #createForm textarea { min-height: 70px; resize: vertical; }
 
-  /* scene */
-  .scene-text { font-family: var(--font-prose); font-size: 18px; line-height: 1.75; white-space: pre-wrap; margin-bottom: 28px; }
+  /* ── Scene ────────────────────────────────────────────────────────── */
+  .scene-text { font-family: var(--font-prose); font-size: 19px; line-height: 1.8; white-space: pre-wrap; margin-bottom: 28px; color: var(--text); }
   .scene-meta { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 10px; }
   .action-row { display: flex; gap: 8px; margin-top: 20px; }
   .action-row input { flex: 1; background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 12px 14px; font-family: var(--font-mono); font-size: 13px; }
   .spinner { display: none; font-size: 12px; color: var(--muted); margin-top: 10px; }
   .spinner.active { display: block; }
-  .past-scene { opacity: 0.5; font-size: 15px; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px dashed var(--border); }
+  .past-scene { opacity: 0.6; font-size: 16px; font-family: var(--font-prose); margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px dashed var(--border); }
 </style>
 </head>
 <body>
-<div class="container">
-  <header>
-    <div class="brand">A Living Novel</div>
-    <div class="worldtime" id="worldTime"></div>
-  </header>
+<div class="novel-frame" id="novelFrame">
+  <span class="corner corner-tl" aria-hidden="true"></span>
+  <span class="corner corner-tr" aria-hidden="true"></span>
+  <span class="corner corner-bl" aria-hidden="true"></span>
+  <span class="corner corner-br" aria-hidden="true"></span>
+  <div class="frame-band" aria-hidden="true"></div>
 
-  <div id="authGate">
-    <p class="muted-note">Sign in to enter your world. A code will be emailed to you.</p>
-    <input type="email" id="authEmail" placeholder="you@example.com">
-    <button id="authSendBtn" onclick="sendMagicLink()">Send sign-in link</button>
-    <p class="muted-note" id="authStatus"></p>
+  <div class="container">
+    <header>
+      <div class="brand">A Living Novel</div>
+      <div class="header-right">
+        <div class="worldtime" id="worldTime"></div>
+        <div class="settings-wrap" id="settingsWrap">
+          <button class="icon-btn" id="settingsBtn" onclick="toggleSettingsPanel()" aria-label="Display settings">Display &#9662;</button>
+          <div class="settings-panel" id="settingsPanel">
+            <div class="settings-row">
+              <span>Theme</span>
+              <div class="segmented">
+                <button id="themeDarkBtn" onclick="setTheme('dark')">Dark</button>
+                <button id="themeLightBtn" onclick="setTheme('light')">Light</button>
+              </div>
+            </div>
+            <div class="settings-row">
+              <span>Contrast</span>
+              <div class="segmented">
+                <button id="contrastNormalBtn" onclick="setContrast('normal')">Normal</button>
+                <button id="contrastHighBtn" onclick="setContrast('high')">High</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div id="authGate">
+      <p class="muted-note">Sign in to enter your world. A code will be emailed to you.</p>
+      <input type="email" id="authEmail" placeholder="you@example.com">
+      <button id="authSendBtn" onclick="sendMagicLink()">Send sign-in link</button>
+      <p class="muted-note" id="authStatus"></p>
+    </div>
+
+    <div id="createForm" class="hidden">
+      <p class="muted-note">The world continues whether or not you show up. Set the seed and step in.</p>
+      <div>
+        <label>World title</label>
+        <input type="text" id="worldTitle" placeholder="The Hollow Coast">
+      </div>
+      <div>
+        <label>Genre</label>
+        <select id="worldGenre" onchange="applyGenreClass(this.value)">
+          <option value="mystery">Mystery</option>
+          <option value="fantasy">Fantasy</option>
+          <option value="romance">Romance</option>
+          <option value="sci-fi">Sci-fi</option>
+          <option value="literary">Literary / slice-of-life</option>
+          <option value="thriller">Thriller</option>
+        </select>
+      </div>
+      <div>
+        <label>Tone notes (optional)</label>
+        <textarea id="worldTone" placeholder="Quiet, melancholy, slow-burn tension"></textarea>
+      </div>
+      <div>
+        <label>Your character's name</label>
+        <input type="text" id="charName" placeholder="Mara Voss">
+      </div>
+      <div>
+        <label>Your character, briefly</label>
+        <textarea id="charTraits" placeholder="A dockworker with a debt she can't explain"></textarea>
+      </div>
+      <button class="btn" id="createBtn" onclick="createWorld()">Begin</button>
+      <p class="spinner" id="createSpinner">Seeding your world...</p>
+    </div>
+
+    <div id="sceneView" class="hidden">
+      <div id="pastScenes"></div>
+      <div class="scene-meta" id="sceneMeta"></div>
+      <div class="scene-text" id="sceneText"></div>
+      <div class="action-row">
+        <input type="text" id="actionInput" placeholder="What do you do?" onkeydown="if(event.key==='Enter') takeTurn()">
+        <button class="btn" onclick="takeTurn()">Continue</button>
+      </div>
+      <p class="spinner" id="turnSpinner">The world responds...</p>
+      <p class="muted-note" id="chapterCapNote"></p>
+    </div>
   </div>
 
-  <div id="createForm" class="hidden">
-    <p class="muted-note">The world continues whether or not you show up. Set the seed and step in.</p>
-    <div>
-      <label>World title</label>
-      <input type="text" id="worldTitle" placeholder="The Hollow Coast">
-    </div>
-    <div>
-      <label>Genre</label>
-      <select id="worldGenre">
-        <option value="mystery">Mystery</option>
-        <option value="fantasy">Fantasy</option>
-        <option value="romance">Romance</option>
-        <option value="sci-fi">Sci-fi</option>
-        <option value="literary">Literary / slice-of-life</option>
-        <option value="thriller">Thriller</option>
-      </select>
-    </div>
-    <div>
-      <label>Tone notes (optional)</label>
-      <textarea id="worldTone" placeholder="Quiet, melancholy, slow-burn tension"></textarea>
-    </div>
-    <div>
-      <label>Your character's name</label>
-      <input type="text" id="charName" placeholder="Mara Voss">
-    </div>
-    <div>
-      <label>Your character, briefly</label>
-      <textarea id="charTraits" placeholder="A dockworker with a debt she can't explain"></textarea>
-    </div>
-    <button class="btn" id="createBtn" onclick="createWorld()">Begin</button>
-    <p class="spinner" id="createSpinner">Seeding your world...</p>
-  </div>
-
-  <div id="sceneView" class="hidden">
-    <div id="pastScenes"></div>
-    <div class="scene-meta" id="sceneMeta"></div>
-    <div class="scene-text" id="sceneText"></div>
-    <div class="action-row">
-      <input type="text" id="actionInput" placeholder="What do you do?" onkeydown="if(event.key==='Enter') takeTurn()">
-      <button class="btn" onclick="takeTurn()">Continue</button>
-    </div>
-    <p class="spinner" id="turnSpinner">The world responds...</p>
-    <p class="muted-note" id="chapterCapNote"></p>
-  </div>
+  <div class="frame-band" aria-hidden="true"></div>
 </div>
 
 <script>
+// ── Display preferences (theme / contrast / genre ambiance) ──────────
+const THEME_KEY = 'aln_theme';
+const CONTRAST_KEY = 'aln_contrast';
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  document.getElementById('themeDarkBtn').classList.toggle('active', theme !== 'light');
+  document.getElementById('themeLightBtn').classList.toggle('active', theme === 'light');
+}
+function setTheme(theme) { localStorage.setItem(THEME_KEY, theme); applyTheme(theme); }
+
+function applyContrast(level) {
+  if (level === 'high') document.documentElement.setAttribute('data-contrast', 'high');
+  else document.documentElement.removeAttribute('data-contrast');
+  document.getElementById('contrastNormalBtn').classList.toggle('active', level !== 'high');
+  document.getElementById('contrastHighBtn').classList.toggle('active', level === 'high');
+}
+function setContrast(level) { localStorage.setItem(CONTRAST_KEY, level); applyContrast(level); }
+
+function toggleSettingsPanel() { document.getElementById('settingsPanel').classList.toggle('open'); }
+document.addEventListener('click', (e) => {
+  const wrap = document.getElementById('settingsWrap');
+  if (wrap && !wrap.contains(e.target)) document.getElementById('settingsPanel').classList.remove('open');
+});
+
+function applyGenreClass(genre) {
+  const frame = document.getElementById('novelFrame');
+  frame.className = frame.className.replace(/\bgenre-\S+/g, '').trim();
+  frame.classList.add('genre-' + (genre || 'literary'));
+}
+
+(function initDisplayPrefs() {
+  const storedTheme = localStorage.getItem(THEME_KEY);
+  const theme = storedTheme || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+  applyTheme(theme);
+  applyContrast(localStorage.getItem(CONTRAST_KEY) || 'normal');
+  applyGenreClass('literary');
+})();
+
 // ── Config ──────────────────────────────────────────────────────────
 // TODO: fill in with your own Supabase project (separate from any other
 // app's project). The anon key is safe to expose client-side.
@@ -147,6 +270,7 @@ async function onSignedIn(user) {
   const data = await res.json();
   if (data.world) {
     currentWorld = data.world;
+    applyGenreClass(currentWorld.world.genre);
     renderScene(currentWorld.storyState.last_scene_summary, { fresh: true });
     document.getElementById('sceneView').classList.remove('hidden');
     updateChapterCapNote(currentWorld.world.chapters_in_window, currentWorld.world.chapter_cap);
@@ -180,6 +304,7 @@ async function createWorld() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Failed to create world');
     currentWorld = data.world;
+    applyGenreClass(currentWorld.world.genre);
     document.getElementById('createForm').classList.add('hidden');
     document.getElementById('sceneView').classList.remove('hidden');
     renderScene(currentWorld.storyState.last_scene_summary, { fresh: true });
