@@ -883,20 +883,34 @@ async function takeTurn() {
     const res = await fetch('/api/turn', {
       method: 'POST',
       headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
-      body: JSON.stringify({ userId: currentUser.id, worldId: currentWorld.world.id, userAction: action || null }),
+      body: JSON.stringify({ 
+        snapshot: currentWorld,           // ← This is the key fix
+        userAction: action || null,
+        hoursAdvanced: 8
+      }),
     });
+
     const data = await res.json();
+
     if (res.status === 429) {
       showChapterCapReached(data);
       return;
     }
-    if (!res.ok) throw new Error(data.error || 'Failed to continue');
-    archivePastScene();
-    renderScene(data.scene, { worldTime: data.world_time, pacing: data.pacing });
-    updateChapterCapNote(data.chapters_used, data.chapter_cap, data.resets_at);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    if (!res.ok) {
+      throw new Error(data.error || 'Failed to take turn');
+    }
+
+    // Success - update the UI with the new scene
+    if (data.scene) {
+      appendNewChapter(data.scene);
+      currentWorld = data.snapshot;   // update local state
+      renderWorldUI();
+    }
+
   } catch (e) {
-    alert(e.message);
+    console.error(e);
+    alert(e.message || 'Something went wrong taking your turn');
   } finally {
     document.getElementById('turnSpinner').classList.remove('active');
   }
