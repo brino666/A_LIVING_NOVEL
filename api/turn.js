@@ -7,12 +7,19 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { snapshot, userAction, hoursAdvanced } = req.body;
+  const { snapshot, userAction, hoursAdvanced } = req.body || {};
+
+  if (!snapshot || !snapshot.world) {
+    return res.status(400).json({ 
+      success: false, 
+      error: "Missing snapshot or world data" 
+    });
+  }
 
   try {
     const directorOutput = await runStoryDirector({
       snapshot,
-      userAction,
+      userAction: userAction || '',
       hoursAdvanced: hoursAdvanced || 8
     });
 
