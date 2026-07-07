@@ -879,16 +879,51 @@ async function takeTurn() {
   collapseActionBoxIfEmpty();
   document.getElementById('turnSpinner').classList.add('active');
 
+  console.log("takeTurn called - currentWorld:", currentWorld); // ← debug
+
+  if (!currentWorld || !currentWorld.world) {
+    alert("Error: No world loaded. Please refresh the page.");
+    document.getElementById('turnSpinner').classList.remove('active');
+    return;
+  }
+
   try {
     const res = await fetch('/api/turn', {
       method: 'POST',
       headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
       body: JSON.stringify({ 
-        snapshot: currentWorld,           // ← This is the key fix
+        snapshot: currentWorld,
         userAction: action || null,
         hoursAdvanced: 8
       }),
     });
+
+    const data = await res.json();
+
+    if (res.status === 429) {
+      showChapterCapReached(data);
+      return;
+    }
+
+    if (!res.ok) {
+      console.error("Turn failed:", data);
+      throw new Error(data.error || 'Failed to take turn');
+    }
+
+    // Success
+    if (data.scene) {
+      appendNewChapter(data.scene);
+      currentWorld = data.snapshot;
+      renderWorldUI();
+    }
+
+  } catch (e) {
+    console.error(e);
+    alert(e.message || 'Something went wrong taking your turn');
+  } finally {
+    document.getElementById('turnSpinner').classList.remove('active');
+  }
+}
 
     const data = await res.json();
 
