@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "type": "module",
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.32.0",
+    "openai": "^4.0.0",
     "web-push": "^3.6.7"
   }
 }
