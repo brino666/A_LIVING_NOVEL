@@ -554,21 +554,21 @@ function updateNotificationsRowVisibility() {
 // ── Config ──────────────────────────────────────────────────────────
 // TODO: fill in with your own Supabase project (separate from any other
 // app's project). The anon key is safe to expose client-side.
+
+ <script>
 const SUPABASE_URL = 'https://wvfrhketeiehqlhbtifc.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_HS0So4dfyL6-ef0VITbcHg_x61lYrkb';
-// Public VAPID key -- safe to expose client-side, same as the anon key above.
 const VAPID_PUBLIC_KEY = 'BEw95Pe_e3YqYyyJRku4uVM5Z025ylZLJnpy94BAw5VaQa4hlh5uVuZGdA_X3mpDVNl_qmqjejNOhltvoKvysCE';
 
 let supabaseClient = null;
 let currentUser = null;
 let currentAccessToken = null;
-let currentWorld = null; // full snapshot: { world, storyState, userCharacter, characters, locations, events }
+let currentWorld = null;
 
-// The server verifies this token against the userId on every request --
-// without it, /api/world and /api/turn reject the request outright.
-function authHeaders() {
-  return currentAccessToken ? { 'Authorization': 'Bearer ' + currentAccessToken } : {};
-}
+// Initialize Supabase
+supabaseClient = Supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+console.log("✅ Supabase client initialized successfully");
+</script>
 
 (async function initAuth() {
   try {
