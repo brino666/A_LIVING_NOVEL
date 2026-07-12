@@ -871,7 +871,12 @@ async function createWorld() {
   }
 }
 
+let turnInFlight = false;
+
 async function takeTurn() {
+  if (turnInFlight) return; // a click during the save prompt, a double-click, or Enter+click both firing shouldn't send two turns
+  turnInFlight = true;
+
   const input = document.getElementById('actionInput');
   const action = input.value.trim();
   input.value = '';
@@ -899,6 +904,7 @@ async function takeTurn() {
     alert(e.message);
   } finally {
     document.getElementById('turnSpinner').classList.remove('active');
+    turnInFlight = false;
   }
 }
 

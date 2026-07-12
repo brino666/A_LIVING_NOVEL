@@ -4,7 +4,7 @@
 //   run Scene Writer -> save state -> return the scene.
 
 import {
-  getWorldSnapshot, advanceWorldTime, saveSceneSummary, saveChapterDisplayText, updateCharacter, consumeChapterSlot, touchLastVisited,
+  getWorldSnapshot, advanceWorldTime, saveSceneSummary, saveChapterDisplayText, updateCharacter, consumeChapterSlot, refundChapterSlot, touchLastVisited,
 } from '../lib/novel-engine/db.js';
 import { advanceTime, formatWorldTime } from '../lib/novel-engine/time.js';
 import { runStoryDirector } from '../lib/novel-engine/director.js';
@@ -47,44 +47,52 @@ export default async function handler(req, res) {
     // rapid clicks can't both slip through while the first is still running.
     await consumeChapterSlot(worldId, capCheck);
 
-    const { newTime, hoursAdvanced } = advanceTime(snapshot.world.world_hours, !!userAction);
+    try {
+      const { newTime, hoursAdvanced } = advanceTime(snapshot.world.world_hours, !!userAction);
 
-    const directorOutput = await runStoryDirector({ snapshot, userAction, hoursAdvanced });
+      const directorOutput = await runStoryDirector({ snapshot, userAction, hoursAdvanced });
 
-    await applyDirectorUpdates(worldId, snapshot, directorOutput, newTime);
+      await applyDirectorUpdates(worldId, snapshot, directorOutput, newTime);
 
-    snapshot.world.world_hours = newTime; // so the Writer sees the advanced clock
-    const sceneText = await writeScene({ snapshot, directorOutput, userAction });
+      snapshot.world.world_hours = newTime; // so the Writer sees the advanced clock
+      const sceneText = await writeScene({ snapshot, directorOutput, userAction });
 
-    const interactionCount = (snapshot.world.interaction_count || 0) + 1;
-    await advanceWorldTime(worldId, newTime, interactionCount);
+      const interactionCount = (snapshot.world.interaction_count || 0) + 1;
+      await advanceWorldTime(worldId, newTime, interactionCount);
 
-    let summaryToSave = sceneText;
-    if (shouldConsolidate(interactionCount)) {
-      const consolidation = await consolidateMemory({ snapshot, recentSceneText: sceneText });
-      if (consolidation) {
-        summaryToSave = consolidation.world_memory_summary;
-        for (const update of consolidation.character_memory_updates || []) {
-          await updateCharacter(update.character_id, { memory_summary: update.memory_summary });
+      let summaryToSave = sceneText;
+      if (shouldConsolidate(interactionCount)) {
+        const consolidation = await consolidateMemory({ snapshot, recentSceneText: sceneText });
+        if (consolidation) {
+          summaryToSave = consolidation.world_memory_summary;
+          for (const update of consolidation.character_memory_updates || []) {
+            await updateCharacter(update.character_id, { memory_summary: update.memory_summary });
+          }
         }
       }
-    }
-    await saveSceneSummary(worldId, summaryToSave);
-    const previousChapterText = snapshot.storyState ? snapshot.storyState.last_chapter_text : '';
-    await saveChapterDisplayText(worldId, previousChapterText, sceneText);
-    await touchLastVisited(worldId);
+      await saveSceneSummary(worldId, summaryToSave);
+      const previousChapterText = snapshot.storyState ? snapshot.storyState.last_chapter_text : '';
+      await saveChapterDisplayText(worldId, previousChapterText, sceneText);
+      await touchLastVisited(worldId);
 
-    return res.status(200).json({
-      scene: sceneText,
-      world_time: formatWorldTime(newTime),
-      hours_advanced: hoursAdvanced,
-      narrative_priority: directorOutput.narrative_priority,
-      scene_focus: directorOutput.scene_focus,
-      pacing: ['slow', 'moderate', 'fast'].includes(directorOutput.pacing) ? directorOutput.pacing : 'moderate',
-      chapters_used: capCheck.newCount,
-      chapter_cap: capCheck.chapterCap,
-      resets_at: new Date(capCheck.resetsAt).toISOString(),
-    });
+      return res.status(200).json({
+        scene: sceneText,
+        world_time: formatWorldTime(newTime),
+        hours_advanced: hoursAdvanced,
+        narrative_priority: directorOutput.narrative_priority,
+        scene_focus: directorOutput.scene_focus,
+        pacing: ['slow', 'moderate', 'fast'].includes(directorOutput.pacing) ? directorOutput.pacing : 'moderate',
+        chapters_used: capCheck.newCount,
+        chapter_cap: capCheck.chapterCap,
+        resets_at: new Date(capCheck.resetsAt).toISOString(),
+      });
+    } catch (genErr) {
+      // The slot was already spent above -- if anything past that point
+      // fails, give it back rather than charging a chapter for a story
+      // the reader never got.
+      await refundChapterSlot(worldId, capCheck).catch(() => {});
+      throw genErr;
+    }
   } catch (err) {
     console.error('[novel-engine/turn error]', err);
     return res.status(500).json({ error: err.message || 'Internal error' });
