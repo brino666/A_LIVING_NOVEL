@@ -554,20 +554,21 @@ function updateNotificationsRowVisibility() {
 // ── Config ──────────────────────────────────────────────────────────
 // TODO: fill in with your own Supabase project (separate from any other
 // app's project). The anon key is safe to expose client-side.
-
 const SUPABASE_URL = 'https://wvfrhketeiehqlhbtifc.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_HS0So4dfyL6-ef0VITbcHg_x61lYrkb';
+// Public VAPID key -- safe to expose client-side, same as the anon key above.
 const VAPID_PUBLIC_KEY = 'BEw95Pe_e3YqYyyJRku4uVM5Z025ylZLJnpy94BAw5VaQa4hlh5uVuZGdA_X3mpDVNl_qmqjejNOhltvoKvysCE';
 
 let supabaseClient = null;
 let currentUser = null;
 let currentAccessToken = null;
-let currentWorld = null;
+let currentWorld = null; // full snapshot: { world, storyState, userCharacter, characters, locations, events }
 
-// Initialize Supabase
-supabaseClient = Supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-console.log("✅ Supabase client initialized successfully");
-
+// The server verifies this token against the userId on every request --
+// without it, /api/world and /api/turn reject the request outright.
+function authHeaders() {
+  return currentAccessToken ? { 'Authorization': 'Bearer ' + currentAccessToken } : {};
+}
 
 (async function initAuth() {
   try {
@@ -878,73 +879,24 @@ async function takeTurn() {
   collapseActionBoxIfEmpty();
   document.getElementById('turnSpinner').classList.add('active');
 
-  console.log("takeTurn called - currentWorld:", currentWorld); // ← debug
-
-  if (!currentWorld || !currentWorld.world) {
-    alert("Error: No world loaded. Please refresh the page.");
-    document.getElementById('turnSpinner').classList.remove('active');
-    return;
-  }
-
   try {
     const res = await fetch('/api/turn', {
       method: 'POST',
       headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
-      body: JSON.stringify({ 
-        snapshot: currentWorld,
-        userAction: action || null,
-        hoursAdvanced: 8
-      }),
+      body: JSON.stringify({ userId: currentUser.id, worldId: currentWorld.world.id, userAction: action || null }),
     });
-
     const data = await res.json();
-
     if (res.status === 429) {
       showChapterCapReached(data);
       return;
     }
-
-    if (!res.ok) {
-      console.error("Turn failed:", data);
-      throw new Error(data.error || 'Failed to take turn');
-    }
-
-    // Success
-    if (data.scene) {
-      appendNewChapter(data.scene);
-      currentWorld = data.snapshot;
-      renderWorldUI();
-    }
-
+    if (!res.ok) throw new Error(data.error || 'Failed to continue');
+    archivePastScene();
+    renderScene(data.scene, { worldTime: data.world_time, pacing: data.pacing });
+    updateChapterCapNote(data.chapters_used, data.chapter_cap, data.resets_at);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   } catch (e) {
-    console.error(e);
-    alert(e.message || 'Something went wrong taking your turn');
-  } finally {
-    document.getElementById('turnSpinner').classList.remove('active');
-  }
-}
-
-    const data = await res.json();
-
-    if (res.status === 429) {
-      showChapterCapReached(data);
-      return;
-    }
-
-    if (!res.ok) {
-      throw new Error(data.error || 'Failed to take turn');
-    }
-
-    // Success - update the UI with the new scene
-    if (data.scene) {
-      appendNewChapter(data.scene);
-      currentWorld = data.snapshot;   // update local state
-      renderWorldUI();
-    }
-
-  } catch (e) {
-    console.error(e);
-    alert(e.message || 'Something went wrong taking your turn');
+    alert(e.message);
   } finally {
     document.getElementById('turnSpinner').classList.remove('active');
   }
