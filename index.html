@@ -389,8 +389,7 @@
       </p>
       <div class="action-row">
         <textarea id="actionInput" rows="1" placeholder="What do you do?"
-          oninput="autoGrowAction()" onfocus="expandActionBox()" onblur="collapseActionBoxIfEmpty()"
-          onkeydown="handleActionKeydown(event)"></textarea>
+          oninput="autoGrowAction()" onfocus="expandActionBox()" onblur="collapseActionBoxIfEmpty()"></textarea>
         <button class="btn" onclick="confirmContinue()">Continue</button>
       </div>
       <p class="muted-note action-hint hidden" id="actionHint">Write it as something you do -- e.g. "I drive to the next town" or "I stop returning his calls."</p>
@@ -696,13 +695,6 @@ function collapseActionBoxIfEmpty() {
   const el = document.getElementById('actionInput');
   if (!el.value.trim()) {
     document.getElementById('actionHint').classList.add('hidden');
-  }
-}
-
-function handleActionKeydown(event) {
-  if (event.key === 'Enter' && !event.shiftKey) {
-    event.preventDefault();
-    confirmContinue();
   }
 }
 
