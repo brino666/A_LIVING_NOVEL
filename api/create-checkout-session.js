@@ -6,7 +6,7 @@
 
 import { getWorldById } from '../lib/novel-engine/db.js';
 import { requireMatchingUser } from '../lib/novel-engine/auth.js';
-import { stripe } from '../lib/novel-engine/stripe.js';
+import { getStripe } from '../lib/novel-engine/stripe.js';
 
 const TIER_PRICE_ENV = { tier_one: 'STRIPE_PRICE_TIER_ONE', tier_two: 'STRIPE_PRICE_TIER_TWO' };
 
@@ -31,7 +31,7 @@ export default async function handler(req, res) {
   const origin = req.headers.origin || ('https://' + req.headers.host);
 
   try {
-    const session = await stripe.checkout.sessions.create({
+    const session = await getStripe().checkout.sessions.create({
       mode: 'subscription',
       line_items: [{ price: priceId, quantity: 1 }],
       client_reference_id: worldId,

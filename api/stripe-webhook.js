@@ -3,7 +3,7 @@
 // the corresponding world. Requires the raw request body for signature
 // verification, so Vercel's default JSON body parser is disabled below.
 
-import { stripe, chapterCapForPrice } from '../lib/novel-engine/stripe.js';
+import { getStripe, chapterCapForPrice } from '../lib/novel-engine/stripe.js';
 import { updateWorldBilling, updateWorldBillingBySubscriptionId } from '../lib/novel-engine/db.js';
 
 export const config = { api: { bodyParser: false } };
@@ -37,7 +37,7 @@ export default async function handler(req, res) {
   let event;
   try {
     const rawBody = await readRawBody(req);
-    event = stripe.webhooks.constructEvent(rawBody, signature, process.env.STRIPE_WEBHOOK_SECRET);
+    event = getStripe().webhooks.constructEvent(rawBody, signature, process.env.STRIPE_WEBHOOK_SECRET);
   } catch (err) {
     console.error('[stripe-webhook] signature verification failed', err.message);
     return res.status(400).send('Webhook signature verification failed');
@@ -49,7 +49,7 @@ export default async function handler(req, res) {
         const session = event.data.object;
         const worldId = session.client_reference_id || (session.metadata && session.metadata.worldId);
         if (worldId && session.subscription) {
-          const subscription = await stripe.subscriptions.retrieve(session.subscription);
+          const subscription = await getStripe().subscriptions.retrieve(session.subscription);
           const priceId = subscription.items.data[0].price.id;
           await updateWorldBilling(worldId, {
             stripe_customer_id: session.customer,

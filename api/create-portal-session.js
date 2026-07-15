@@ -4,7 +4,7 @@
 
 import { getWorldById } from '../lib/novel-engine/db.js';
 import { requireMatchingUser } from '../lib/novel-engine/auth.js';
-import { stripe } from '../lib/novel-engine/stripe.js';
+import { getStripe } from '../lib/novel-engine/stripe.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -20,7 +20,7 @@ export default async function handler(req, res) {
   const origin = req.headers.origin || ('https://' + req.headers.host);
 
   try {
-    const session = await stripe.billingPortal.sessions.create({
+    const session = await getStripe().billingPortal.sessions.create({
       customer: world.stripe_customer_id,
       return_url: origin + '/',
     });
