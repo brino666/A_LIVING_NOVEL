@@ -387,7 +387,8 @@
 
     <div id="sceneView" class="hidden">
       <div id="returnRecap" class="return-recap hidden"><span class="return-recap-label">While you were away</span><span id="returnRecapText"></span></div>
-      <div id="pastScenes"></div>
+      <button class="text-btn hidden" id="previousChapterToggle" onclick="togglePreviousChapter()">Read previous chapter</button>
+      <div id="pastScenes" class="hidden"></div>
       <div class="scene-meta" id="sceneMeta"></div>
       <div class="scene-text" id="sceneText"></div>
       <p class="muted-note action-tip hidden" id="actionTip">
@@ -405,7 +406,7 @@
       <p class="muted-note action-hint hidden" id="actionHint">Write it as something you do -- e.g. "I drive to the next town" or "I stop returning his calls."</p>
       <p class="spinner" id="turnSpinner">Sorry for the wait -- your next chapter is being written, not fetched. Hang tight, it's only a moment.</p>
       <p class="muted-note" id="chapterCapNote"></p>
-      <button class="text-btn" id="downloadStoryBtn" onclick="downloadStory()">Download your story so far</button>
+      <button class="text-btn" id="downloadStoryBtn" onclick="downloadStory()">Download chapter</button>
     </div>
   </div>
 
@@ -696,6 +697,7 @@ async function enterWorld(snapshot) {
     div.textContent = previousChapter;
     document.getElementById('pastScenes').appendChild(div);
   }
+  updatePreviousChapterToggle();
   const lastChapterText = currentWorld.storyState
     ? (currentWorld.storyState.last_chapter_text || currentWorld.storyState.last_scene_summary)
     : '';
@@ -927,13 +929,35 @@ async function takeTurn() {
   }
 }
 
+// Keeps exactly one archived chapter -- the one just replaced -- rather
+// than stacking every chapter read this session above the current one.
 function archivePastScene() {
   const text = document.getElementById('sceneText').textContent;
-  if (!text) return;
-  const div = document.createElement('div');
-  div.className = 'past-scene';
-  div.textContent = text;
-  document.getElementById('pastScenes').prepend(div);
+  const container = document.getElementById('pastScenes');
+  container.innerHTML = '';
+  if (text) {
+    const div = document.createElement('div');
+    div.className = 'past-scene';
+    div.textContent = text;
+    container.appendChild(div);
+  }
+  updatePreviousChapterToggle();
+}
+
+function updatePreviousChapterToggle() {
+  const container = document.getElementById('pastScenes');
+  const btn = document.getElementById('previousChapterToggle');
+  const hasContent = container.children.length > 0;
+  btn.classList.toggle('hidden', !hasContent);
+  container.classList.add('hidden');
+  btn.textContent = 'Read previous chapter';
+}
+
+function togglePreviousChapter() {
+  const container = document.getElementById('pastScenes');
+  const btn = document.getElementById('previousChapterToggle');
+  const nowHidden = container.classList.toggle('hidden');
+  btn.textContent = nowHidden ? 'Read previous chapter' : 'Hide previous chapter';
 }
 
 function renderScene(text, opts) {
