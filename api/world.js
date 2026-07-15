@@ -5,10 +5,11 @@
 // library listing endpoint.
 
 import {
-  sbFetch, getWorldSnapshot, getWorldById, getWorldForUser, getWorldsForUser, insertCharacter, deleteWorld,
+  sbFetch, getWorldSnapshot, getWorldById, getWorldForUser, getWorldsForUser, deleteWorld,
   updateToneSettings,
 } from '../lib/novel-engine/db.js';
 import { generateGenesis } from '../lib/novel-engine/genesis.js';
+import { seedWorldContent } from '../lib/novel-engine/worldSeed.js';
 import { requireMatchingUser } from '../lib/novel-engine/auth.js';
 import { maybeRunPassiveTicks } from '../lib/novel-engine/passiveTick.js';
 import { hasActiveAccess } from '../lib/novel-engine/access.js';
@@ -85,56 +86,7 @@ async function handlePost(req, res) {
   // above on retry AND break the frontend, which assumes storyState exists.
   try {
     const genesis = await generateGenesis({ title, genre, toneSettings, userCharacter });
-
-    const locationRows = await sbFetch('/locations', {
-      method: 'POST',
-      body: JSON.stringify(genesis.locations.map((l) => ({
-        world_id: world.id, name: l.name, description: l.description, type: l.type,
-      }))),
-    });
-    const locationByName = new Map(locationRows.map((l) => [l.name, l.id]));
-
-    for (const c of genesis.characters) {
-      await insertCharacter(world.id, {
-        name: c.name,
-        role: c.role,
-        personality: c.personality || {},
-        goals: c.goals || [],
-        relationships: {},
-        location_id: locationByName.get(c.starting_location_name) || null,
-        last_seen_time: 0,
-      });
-    }
-
-    const startingLocationId = locationRows[0] ? locationRows[0].id : null;
-
-    await sbFetch('/story_state', {
-      method: 'POST',
-      headers: { 'Prefer': 'return=minimal' },
-      body: JSON.stringify({
-        world_id: world.id,
-        main_plot_threads: genesis.main_plot_threads,
-        user_relationship_map: {},
-        active_hooks: genesis.active_hooks,
-        narrative_pressure: 0.2,
-        last_scene_summary: genesis.opening_scene_seed,
-        last_chapter_text: genesis.opening_scene_seed,
-      }),
-    });
-
-    await sbFetch('/user_character', {
-      method: 'POST',
-      headers: { 'Prefer': 'return=minimal' },
-      body: JSON.stringify({
-        world_id: world.id,
-        name: userCharacter.name,
-        traits: userCharacter.traits || {},
-        inventory: [],
-        current_location: startingLocationId,
-        emotional_state: {},
-        memory: '',
-      }),
-    });
+    await seedWorldContent(world.id, genesis, userCharacter);
   } catch (err) {
     await deleteWorld(world.id).catch(() => {}); // best-effort cleanup; surface the original error either way
     throw err;

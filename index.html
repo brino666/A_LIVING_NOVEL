@@ -259,6 +259,9 @@
             <div class="settings-row hidden" id="billingManageRow">
               <button class="text-btn" onclick="openBillingPortal()">Manage billing</button>
             </div>
+            <div class="settings-row hidden" id="restartRow">
+              <button class="text-btn" onclick="confirmRestart()">Restart this story</button>
+            </div>
             <div class="settings-divider"></div>
             <div class="settings-row">
               <button class="text-btn" id="libraryLinkBtn" onclick="loadLibrary()">My Library</button>
@@ -413,8 +416,9 @@
         <label>Your character, briefly</label>
         <textarea id="charTraits" placeholder="A dockworker with a debt she can't explain"></textarea>
       </div>
-      <button class="btn" id="createBtn" onclick="createWorld()">Begin</button>
+      <button class="btn" id="createBtn" onclick="beginWorldForm()">Begin</button>
       <p class="spinner" id="createSpinner">Sorry for the wait -- we're genuinely building your world from scratch, characters and all. Hang tight, it's only a moment.</p>
+      <button class="text-btn hidden" id="cancelRestartBtn" onclick="cancelRestart()">Cancel and return to my story</button>
     </div>
 
     <div id="sceneView" class="hidden">
@@ -691,6 +695,10 @@ function showCreateForm() {
   hideAllViews();
   document.getElementById('intensityRow').classList.add('hidden');
   document.getElementById('createForm').classList.remove('hidden');
+  // Always starts in create-a-new-world mode -- confirmRestart() opts back
+  // into restart mode explicitly right after calling this.
+  restartTargetWorldId = null;
+  document.getElementById('cancelRestartBtn').classList.add('hidden');
 }
 
 // Mirrors lib/novel-engine/time.js formatWorldTime -- the server only sends
@@ -899,10 +907,18 @@ function tierLabelForCap(cap) {
   return cap + '-chapter plan';
 }
 
+// Mirrors lib/novel-engine/access.js hasActiveAccess -- kept in sync
+// manually since this is small and purely for showing/hiding UI (the
+// server is what actually enforces access on every request).
+function hasAccess(world) {
+  return !!world.grandfathered || world.subscription_status === 'trialing' || world.subscription_status === 'active';
+}
+
 function updateBillingRow() {
   if (!currentWorld) return;
-  const status = currentWorld.world.subscription_status;
-  const cap = currentWorld.world.chapter_cap;
+  const world = currentWorld.world;
+  const status = world.subscription_status;
+  const cap = world.chapter_cap;
   const statusRow = document.getElementById('billingStatusRow');
   const statusText = document.getElementById('billingStatusText');
   const subscribeRow = document.getElementById('billingSubscribeRow');
@@ -919,6 +935,8 @@ function updateBillingRow() {
     subscribeRow.classList.add('hidden');
     manageRow.classList.remove('hidden');
   }
+
+  document.getElementById('restartRow').classList.toggle('hidden', !hasAccess(world));
 }
 
 let checkoutBusy = false;
@@ -1064,6 +1082,80 @@ async function createWorld() {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Failed to create world');
+    await enterWorld(data.world);
+  } catch (e) {
+    alert(e.message);
+  } finally {
+    document.getElementById('createBtn').disabled = false;
+    document.getElementById('createSpinner').classList.remove('active');
+  }
+}
+
+// Set while the create form is being used to restart an existing
+// subscribed world instead of creating a brand-new one -- routes the same
+// Begin button to a different endpoint without duplicating the form.
+let restartTargetWorldId = null;
+
+async function beginWorldForm() {
+  if (restartTargetWorldId) {
+    await submitRestart();
+  } else {
+    await createWorld();
+  }
+}
+
+function confirmRestart() {
+  if (!currentWorld) return;
+  const ok = confirm(
+    "This permanently deletes this story's characters, locations, and events, and starts a brand-new one with "
+    + "whatever you enter next. Your subscription and billing are untouched. This can only be done once per "
+    + 'billing period. Continue?'
+  );
+  if (!ok) return;
+  const targetWorldId = currentWorld.world.id;
+  document.getElementById('settingsPanel').classList.remove('open');
+  showCreateForm(); // resets restartTargetWorldId to null -- set it after
+  restartTargetWorldId = targetWorldId;
+  document.getElementById('cancelRestartBtn').classList.remove('hidden');
+}
+
+function cancelRestart() {
+  restartTargetWorldId = null;
+  document.getElementById('cancelRestartBtn').classList.add('hidden');
+  if (currentWorld) {
+    enterWorld(currentWorld);
+  } else {
+    loadLibrary();
+  }
+}
+
+async function submitRestart() {
+  const title = document.getElementById('worldTitle').value.trim();
+  const genre = document.getElementById('worldGenre').value;
+  const tone = document.getElementById('worldTone').value.trim();
+  const charName = document.getElementById('charName').value.trim();
+  const charTraits = document.getElementById('charTraits').value.trim();
+  if (!title || !charName) return;
+
+  document.getElementById('createBtn').disabled = true;
+  document.getElementById('createSpinner').classList.add('active');
+
+  try {
+    const res = await fetch('/api/restart-world', {
+      method: 'POST',
+      headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+      body: JSON.stringify({
+        userId: currentUser.id,
+        worldId: restartTargetWorldId,
+        title, genre,
+        toneSettings: { notes: tone },
+        userCharacter: { name: charName, traits: { description: charTraits } },
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to restart world');
+    restartTargetWorldId = null;
+    document.getElementById('cancelRestartBtn').classList.add('hidden');
     await enterWorld(data.world);
   } catch (e) {
     alert(e.message);
