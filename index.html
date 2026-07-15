@@ -187,6 +187,15 @@
     padding-bottom: 20px; border-bottom: 1px dashed var(--border);
     letter-spacing: var(--prose-tracking); word-spacing: var(--prose-word-spacing);
   }
+  .return-recap {
+    font-size: calc(var(--prose-font-size) - 2px); font-family: var(--font-prose); font-style: italic;
+    color: var(--muted); border-left: 2px solid var(--accent); padding: 2px 0 2px 14px; margin-bottom: 24px;
+    letter-spacing: var(--prose-tracking); word-spacing: var(--prose-word-spacing);
+  }
+  .return-recap-label {
+    font-style: normal; font-family: var(--font-mono); font-size: 0.6875rem; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--accent); display: block; margin-bottom: 6px;
+  }
 </style>
 </head>
 <body>
@@ -377,6 +386,7 @@
     </div>
 
     <div id="sceneView" class="hidden">
+      <div id="returnRecap" class="return-recap hidden"><span class="return-recap-label">While you were away</span><span id="returnRecapText"></span></div>
       <div id="pastScenes"></div>
       <div class="scene-meta" id="sceneMeta"></div>
       <div class="scene-text" id="sceneText"></div>
@@ -672,6 +682,13 @@ async function enterWorld(snapshot) {
     document.getElementById('actionTip').classList.remove('hidden');
   }
   document.getElementById('pastScenes').innerHTML = '';
+  const recapText = currentWorld.storyState ? currentWorld.storyState.return_recap_text : null;
+  if (recapText) {
+    document.getElementById('returnRecapText').textContent = recapText;
+    document.getElementById('returnRecap').classList.remove('hidden');
+  } else {
+    document.getElementById('returnRecap').classList.add('hidden');
+  }
   const previousChapter = currentWorld.storyState ? currentWorld.storyState.previous_chapter_text : null;
   if (previousChapter) {
     const div = document.createElement('div');

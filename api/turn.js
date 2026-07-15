@@ -4,7 +4,7 @@
 //   run Scene Writer -> save state -> return the scene.
 
 import {
-  getWorldSnapshot, advanceWorldTime, saveSceneSummary, saveChapterDisplayText, updateCharacter, consumeChapterSlot, refundChapterSlot, touchLastVisited,
+  getWorldSnapshot, advanceWorldTime, saveSceneSummary, saveChapterDisplayText, updateCharacter, consumeChapterSlot, refundChapterSlot, touchLastVisited, clearReturnRecap,
 } from '../lib/novel-engine/db.js';
 import { advanceTime, formatWorldTime } from '../lib/novel-engine/time.js';
 import { runStoryDirector } from '../lib/novel-engine/director.js';
@@ -73,6 +73,7 @@ export default async function handler(req, res) {
       await saveSceneSummary(worldId, summaryToSave);
       const previousChapterText = snapshot.storyState ? snapshot.storyState.last_chapter_text : '';
       await saveChapterDisplayText(worldId, previousChapterText, sceneText);
+      await clearReturnRecap(worldId);
       await touchLastVisited(worldId);
 
       return res.status(200).json({
