@@ -48,11 +48,8 @@ export default async function handler(req, res) {
     await consumeChapterSlot(worldId, capCheck);
 
     try {
-      const isLastChapterOfDay = !!userAction && capCheck.newCount === capCheck.chapterCap;
-      const { newTime, hoursAdvanced } = advanceTime(snapshot.world.world_hours, !!userAction, {
-        chapterCap: capCheck.chapterCap,
-        isFinalChapterOfWindow: isLastChapterOfDay,
-      });
+      const isLastChapterOfDay = capCheck.newCount === capCheck.chapterCap;
+      const { newTime, hoursAdvanced } = advanceTime(snapshot.world.world_hours, capCheck.chapterCap, isLastChapterOfDay);
 
       const directorOutput = await runStoryDirector({ snapshot, userAction, hoursAdvanced, isLastChapterOfDay });
 
