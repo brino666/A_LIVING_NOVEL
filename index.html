@@ -675,6 +675,7 @@ async function enterWorld(snapshot) {
   currentWorld = snapshot;
   storyFileHandle = null;
   writtenChapterTexts = new Set();
+  updateDownloadButtonLabel();
   applyGenreClass(currentWorld.world.genre);
   showWorldTitle(currentWorld.world.title);
   hideAllViews();
@@ -767,36 +768,36 @@ function fileSafeTitle() {
   return title.replace(/[^a-z0-9]+/gi, '_').replace(/^_+|_+$/g, '');
 }
 
-async function downloadStory() {
+function updateDownloadButtonLabel() {
+  const btn = document.getElementById('downloadStoryBtn');
+  if (!btn) return;
+  btn.textContent = (storyFileHandle && storyFileHandle.name)
+    ? 'Auto-saving to ' + storyFileHandle.name
+    : 'Download chapter';
+}
+
+// Writes whatever's new since the last write into the already-authorized
+// storyFileHandle. Never prompts -- callers must ensure a handle exists
+// first. Used both by the manual button (after it obtains the handle) and
+// by the automatic save that runs after every new chapter.
+async function syncToStoryFile() {
   const pastDiv = document.querySelector('#pastScenes .past-scene');
   const previousText = pastDiv ? pastDiv.textContent : null;
   const currentText = document.getElementById('sceneText').textContent;
-  if (!currentText) return;
+  if (!currentText || !storyFileHandle) return;
 
-  // Only ship what hasn't already been written in a prior download this
-  // session, so repeated clicks don't duplicate a chapter that's still
-  // sitting in memory (e.g. as "previous chapter") from an earlier write.
+  // Only ship what hasn't already been written, so repeated syncs don't
+  // duplicate a chapter that's still sitting in memory (e.g. as "previous
+  // chapter") from an earlier write.
   const newParts = [];
   if (previousText && !writtenChapterTexts.has(previousText)) newParts.push(previousText);
   if (currentText && !writtenChapterTexts.has(currentText) && currentText !== previousText) newParts.push(currentText);
 
-  if (!('showSaveFilePicker' in window)) {
-    downloadStoryFallback(previousText, currentText);
-    return;
-  }
-
   try {
-    if (!storyFileHandle) {
-      storyFileHandle = await window.showSaveFilePicker({
-        suggestedName: fileSafeTitle() + '.txt',
-        types: [{ description: 'Text file', accept: { 'text/plain': ['.txt'] } }],
-      });
-    }
-
     const existingFile = await storyFileHandle.getFile();
     const isNewFile = existingFile.size === 0;
     const partsToWrite = newParts.length ? newParts : (isNewFile ? [currentText] : []);
-    if (!partsToWrite.length) return; // nothing new since the last download
+    if (!partsToWrite.length) return; // nothing new since the last write
 
     let toWrite = isNewFile ? (currentWorld.world.title || 'A Living Novel') + '\n\n' : '';
     toWrite += partsToWrite.join('\n\n---\n\n') + '\n\n---\n\n';
@@ -807,8 +808,32 @@ async function downloadStory() {
     await writable.close();
     for (const part of partsToWrite) writtenChapterTexts.add(part);
   } catch (e) {
-    if (e.name === 'AbortError') return; // user closed the file picker
+    // Permission revoked, file moved/deleted, etc. -- drop the handle so
+    // the button goes back to prompting instead of silently failing forever.
     storyFileHandle = null;
+    updateDownloadButtonLabel();
+    throw e;
+  }
+}
+
+async function downloadStory() {
+  if (!('showSaveFilePicker' in window)) {
+    const pastDiv = document.querySelector('#pastScenes .past-scene');
+    downloadStoryFallback(pastDiv ? pastDiv.textContent : null, document.getElementById('sceneText').textContent);
+    return;
+  }
+
+  try {
+    if (!storyFileHandle) {
+      storyFileHandle = await window.showSaveFilePicker({
+        suggestedName: fileSafeTitle() + '.txt',
+        types: [{ description: 'Text file', accept: { 'text/plain': ['.txt'] } }],
+      });
+      updateDownloadButtonLabel();
+    }
+    await syncToStoryFile();
+  } catch (e) {
+    if (e.name === 'AbortError') return; // user closed the file picker
     alert('Could not save the file: ' + e.message);
   }
 }
@@ -980,6 +1005,9 @@ async function takeTurn() {
     renderScene(data.scene, { worldTime: data.world_time, pacing: data.pacing });
     updateChapterCapNote(data.chapters_used, data.chapter_cap, data.resets_at);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    // Once the reader has authorized a file once, keep it in sync
+    // automatically -- no need to click Download again each chapter.
+    if (storyFileHandle) syncToStoryFile().catch(() => {});
   } catch (e) {
     alert(e.message);
   } finally {
