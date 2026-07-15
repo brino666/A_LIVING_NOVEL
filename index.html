@@ -248,6 +248,18 @@
               </div>
             </div>
             <div class="settings-divider"></div>
+            <div class="settings-row hidden" id="billingStatusRow">
+              <span>Plan</span>
+              <span class="account-email" id="billingStatusText"></span>
+            </div>
+            <div class="settings-row hidden" id="billingSubscribeRow">
+              <button class="text-btn" onclick="subscribeToTier('tier_one')">Subscribe -- Tier One</button>
+              <button class="text-btn" onclick="subscribeToTier('tier_two')">Subscribe -- Tier Two</button>
+            </div>
+            <div class="settings-row hidden" id="billingManageRow">
+              <button class="text-btn" onclick="openBillingPortal()">Manage billing</button>
+            </div>
+            <div class="settings-divider"></div>
             <div class="settings-row">
               <button class="text-btn" id="libraryLinkBtn" onclick="loadLibrary()">My Library</button>
               <button class="text-btn" onclick="signOut()">Sign out</button>
@@ -701,6 +713,7 @@ async function enterWorld(snapshot) {
     document.getElementById('pastScenes').appendChild(div);
   }
   updatePreviousChapterToggle();
+  updateBillingRow();
   const lastChapterText = currentWorld.storyState
     ? (currentWorld.storyState.last_chapter_text || currentWorld.storyState.last_scene_summary)
     : '';
@@ -858,6 +871,70 @@ function downloadStoryFallback(previousText, currentText) {
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
+}
+
+function tierLabelForCap(cap) {
+  if (cap === 3) return 'Tier One';
+  if (cap === 6) return 'Tier Two';
+  return cap + '-chapter plan';
+}
+
+function updateBillingRow() {
+  if (!currentWorld) return;
+  const status = currentWorld.world.subscription_status;
+  const cap = currentWorld.world.chapter_cap;
+  const statusRow = document.getElementById('billingStatusRow');
+  const statusText = document.getElementById('billingStatusText');
+  const subscribeRow = document.getElementById('billingSubscribeRow');
+  const manageRow = document.getElementById('billingManageRow');
+
+  if (!status) {
+    statusRow.classList.add('hidden');
+    subscribeRow.classList.remove('hidden');
+    manageRow.classList.add('hidden');
+  } else {
+    const statusLabel = status === 'trialing' ? 'Trial' : status.charAt(0).toUpperCase() + status.slice(1);
+    statusText.textContent = tierLabelForCap(cap) + ' -- ' + statusLabel;
+    statusRow.classList.remove('hidden');
+    subscribeRow.classList.add('hidden');
+    manageRow.classList.remove('hidden');
+  }
+}
+
+let checkoutBusy = false;
+async function subscribeToTier(tier) {
+  if (!currentWorld || checkoutBusy) return;
+  checkoutBusy = true;
+  try {
+    const res = await fetch('/api/create-checkout-session', {
+      method: 'POST',
+      headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+      body: JSON.stringify({ userId: currentUser.id, worldId: currentWorld.world.id, tier, userEmail: currentUser.email }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Could not start checkout');
+    window.location.href = data.url;
+  } catch (e) {
+    alert(e.message);
+  } finally {
+    checkoutBusy = false;
+  }
+}
+
+async function openBillingPortal() {
+  if (!currentWorld) return;
+  try {
+    const res = await fetch('/api/create-portal-session', {
+      method: 'POST',
+      headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+      body: JSON.stringify({ userId: currentUser.id, worldId: currentWorld.world.id }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Could not open billing portal');
+    window.location.href = data.url;
+  } catch (e) {
+    alert(e.message);
+  }
 }
 
 function updateIntensityDisplay() {
