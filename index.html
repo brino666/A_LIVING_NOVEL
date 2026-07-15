@@ -650,6 +650,16 @@ function showCreateForm() {
   document.getElementById('createForm').classList.remove('hidden');
 }
 
+// Mirrors lib/novel-engine/time.js formatWorldTime -- the server only sends
+// a formatted world_time string after a real turn, but the header needs to
+// reflect the raw world_hours on every load too, including after passive
+// ticks silently advanced the clock server-side while the reader was away.
+function formatWorldTime(totalHours) {
+  const day = Math.floor(totalHours / 24) + 1;
+  const hour = totalHours % 24;
+  return 'Day ' + day + ', ' + String(hour).padStart(2, '0') + ':00';
+}
+
 async function enterWorld(snapshot) {
   currentWorld = snapshot;
   applyGenreClass(currentWorld.world.genre);
@@ -672,7 +682,7 @@ async function enterWorld(snapshot) {
   const lastChapterText = currentWorld.storyState
     ? (currentWorld.storyState.last_chapter_text || currentWorld.storyState.last_scene_summary)
     : '';
-  renderScene(lastChapterText, { fresh: true });
+  renderScene(lastChapterText, { fresh: true, worldTime: formatWorldTime(currentWorld.world.world_hours) });
   updateChapterCapNote(currentWorld.world.chapters_in_window, currentWorld.world.chapter_cap);
 }
 
