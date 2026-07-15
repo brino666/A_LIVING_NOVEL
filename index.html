@@ -1084,7 +1084,11 @@ async function takeTurn() {
     if (!res.ok) throw new Error(data.error || 'Failed to continue');
     archivePastScene();
     renderScene(data.scene, { worldTime: data.world_time, pacing: data.pacing });
-    updateChapterCapNote(data.chapters_used, data.chapter_cap, data.resets_at);
+    if (data.is_free_preview) {
+      updatePreviewNote(data.free_preview_used, data.free_preview_limit);
+    } else {
+      updateChapterCapNote(data.chapters_used, data.chapter_cap, data.resets_at);
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
     // Once the reader has authorized a file once, keep it in sync
     // automatically -- no need to click Download again each chapter.
@@ -1136,6 +1140,13 @@ function renderScene(text, opts) {
   if (opts.pacing === 'slow' || opts.pacing === 'fast') sceneEl.classList.add('pace-' + opts.pacing);
   document.getElementById('sceneMeta').textContent = opts.fresh ? 'Where things stand' : 'Just now';
   if (opts.worldTime) document.getElementById('worldTime').textContent = opts.worldTime;
+}
+
+function updatePreviewNote(used, limit) {
+  const remaining = Math.max(0, limit - used);
+  document.getElementById('chapterCapNote').textContent = remaining > 0
+    ? remaining + ' free chapter' + (remaining === 1 ? '' : 's') + ' left, then subscribe to keep reading.'
+    : "That was your last free chapter -- subscribe to keep reading.";
 }
 
 function updateChapterCapNote(chaptersUsed, chapterCap, resetsAt) {

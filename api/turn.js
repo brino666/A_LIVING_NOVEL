@@ -4,7 +4,7 @@
 //   run Scene Writer -> save state -> return the scene.
 
 import {
-  getWorldSnapshot, advanceWorldTime, saveSceneSummary, saveChapterDisplayText, updateCharacter, consumeChapterSlot, refundChapterSlot, touchLastVisited, clearReturnRecap,
+  getWorldSnapshot, advanceWorldTime, saveSceneSummary, saveChapterDisplayText, updateCharacter, consumeChapterSlot, refundChapterSlot, touchLastVisited, clearReturnRecap, setFreePreviewTurnsUsed,
 } from '../lib/novel-engine/db.js';
 import { advanceTime, formatWorldTime } from '../lib/novel-engine/time.js';
 import { runStoryDirector } from '../lib/novel-engine/director.js';
@@ -13,7 +13,7 @@ import { shouldConsolidate, consolidateMemory } from '../lib/novel-engine/memory
 import { evaluateChapterCap } from '../lib/novel-engine/chapters.js';
 import { applyDirectorUpdates } from '../lib/novel-engine/directorApply.js';
 import { requireMatchingUser } from '../lib/novel-engine/auth.js';
-import { hasActiveAccess } from '../lib/novel-engine/access.js';
+import { hasActiveAccess, hasFreePreviewRemaining, FREE_PREVIEW_CHAPTERS } from '../lib/novel-engine/access.js';
 
 // The Director + Writer chain can still run past a minute even at the
 // shorter 1500-1800 word target -- Vercel's Hobby plan hard-caps functions
@@ -35,9 +35,10 @@ export default async function handler(req, res) {
     if (!snapshot) return res.status(404).json({ error: 'World not found' });
     if (snapshot.world.user_id !== userId) return res.status(403).json({ error: 'Not your world' });
 
-    if (!hasActiveAccess(snapshot.world)) {
+    const isSubscribed = hasActiveAccess(snapshot.world);
+    if (!isSubscribed && !hasFreePreviewRemaining(snapshot.world)) {
       return res.status(402).json({
-        error: 'This world needs an active subscription to keep going.',
+        error: "You've used your free preview chapters. Subscribe to keep reading.",
         requiresSubscription: true,
       });
     }
@@ -85,6 +86,12 @@ export default async function handler(req, res) {
       await clearReturnRecap(worldId);
       await touchLastVisited(worldId);
 
+      let previewUsed = null;
+      if (!isSubscribed) {
+        previewUsed = (snapshot.world.free_preview_turns_used || 0) + 1;
+        await setFreePreviewTurnsUsed(worldId, previewUsed);
+      }
+
       return res.status(200).json({
         scene: sceneText,
         world_time: formatWorldTime(newTime),
@@ -95,6 +102,9 @@ export default async function handler(req, res) {
         chapters_used: capCheck.newCount,
         chapter_cap: capCheck.chapterCap,
         resets_at: new Date(capCheck.resetsAt).toISOString(),
+        is_free_preview: !isSubscribed,
+        free_preview_used: previewUsed,
+        free_preview_limit: FREE_PREVIEW_CHAPTERS,
       });
     } catch (genErr) {
       // The slot was already spent above -- if anything past that point
