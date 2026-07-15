@@ -673,6 +673,8 @@ function formatWorldTime(totalHours) {
 
 async function enterWorld(snapshot) {
   currentWorld = snapshot;
+  storyFileHandle = null;
+  writtenChapterTexts = new Set();
   applyGenreClass(currentWorld.world.genre);
   showWorldTitle(currentWorld.world.title);
   hideAllViews();
@@ -744,8 +746,8 @@ function closeSavePrompt() {
   document.getElementById('savePromptOverlay').classList.add('hidden');
 }
 
-function downloadThenContinue() {
-  downloadStory();
+async function downloadThenContinue() {
+  await downloadStory();
   closeSavePrompt();
   takeTurn();
 }
@@ -755,12 +757,69 @@ function continueWithoutSaving() {
   takeTurn();
 }
 
-function downloadStory() {
-  const pastText = Array.from(document.querySelectorAll('#pastScenes .past-scene'))
-    .reverse()
-    .map((div) => div.textContent);
+// Reset per world so a new world's downloads don't append onto a
+// previous world's file handle.
+let storyFileHandle = null;
+let writtenChapterTexts = new Set();
+
+function fileSafeTitle() {
+  const title = (currentWorld && currentWorld.world.title) || 'A Living Novel';
+  return title.replace(/[^a-z0-9]+/gi, '_').replace(/^_+|_+$/g, '');
+}
+
+async function downloadStory() {
+  const pastDiv = document.querySelector('#pastScenes .past-scene');
+  const previousText = pastDiv ? pastDiv.textContent : null;
   const currentText = document.getElementById('sceneText').textContent;
-  const parts = currentText ? pastText.concat([currentText]) : pastText;
+  if (!currentText) return;
+
+  // Only ship what hasn't already been written in a prior download this
+  // session, so repeated clicks don't duplicate a chapter that's still
+  // sitting in memory (e.g. as "previous chapter") from an earlier write.
+  const newParts = [];
+  if (previousText && !writtenChapterTexts.has(previousText)) newParts.push(previousText);
+  if (currentText && !writtenChapterTexts.has(currentText) && currentText !== previousText) newParts.push(currentText);
+
+  if (!('showSaveFilePicker' in window)) {
+    downloadStoryFallback(previousText, currentText);
+    return;
+  }
+
+  try {
+    if (!storyFileHandle) {
+      storyFileHandle = await window.showSaveFilePicker({
+        suggestedName: fileSafeTitle() + '.txt',
+        types: [{ description: 'Text file', accept: { 'text/plain': ['.txt'] } }],
+      });
+    }
+
+    const existingFile = await storyFileHandle.getFile();
+    const isNewFile = existingFile.size === 0;
+    const partsToWrite = newParts.length ? newParts : (isNewFile ? [currentText] : []);
+    if (!partsToWrite.length) return; // nothing new since the last download
+
+    let toWrite = isNewFile ? (currentWorld.world.title || 'A Living Novel') + '\n\n' : '';
+    toWrite += partsToWrite.join('\n\n---\n\n') + '\n\n---\n\n';
+
+    const writable = await storyFileHandle.createWritable({ keepExistingData: true });
+    await writable.seek(existingFile.size);
+    await writable.write(toWrite);
+    await writable.close();
+    for (const part of partsToWrite) writtenChapterTexts.add(part);
+  } catch (e) {
+    if (e.name === 'AbortError') return; // user closed the file picker
+    storyFileHandle = null;
+    alert('Could not save the file: ' + e.message);
+  }
+}
+
+// Safari/Firefox fallback: no way to append to a file on disk, so this
+// downloads a standalone chunk (current + the one archived chapter) each
+// time, same as before.
+function downloadStoryFallback(previousText, currentText) {
+  const parts = [];
+  if (previousText) parts.push(previousText);
+  if (currentText) parts.push(currentText);
   if (!parts.length) return;
 
   const title = (currentWorld && currentWorld.world.title) || 'A Living Novel';
@@ -769,7 +828,7 @@ function downloadStory() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = title.replace(/[^a-z0-9]+/gi, '_').replace(/^_+|_+$/g, '') + '.txt';
+  a.download = fileSafeTitle() + '.txt';
   document.body.appendChild(a);
   a.click();
   a.remove();
