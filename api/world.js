@@ -11,6 +11,7 @@ import {
 import { generateGenesis } from '../lib/novel-engine/genesis.js';
 import { requireMatchingUser } from '../lib/novel-engine/auth.js';
 import { maybeRunPassiveTicks } from '../lib/novel-engine/passiveTick.js';
+import { hasActiveAccess } from '../lib/novel-engine/access.js';
 
 // World creation runs a genesis LLM call plus several sequential inserts;
 // a GET can now also run up to a few passive-tick Director calls. Both can
@@ -37,6 +38,14 @@ async function handleGet(req, res) {
     world = await getWorldForUser(userId); // convenience default: most recently created
   }
   if (!world) return res.status(200).json({ world: null });
+
+  // Don't spend a real Director call catching up a world nobody's paying
+  // to keep running -- just return it as-is; api/turn.js is what actually
+  // blocks continuing.
+  if (!hasActiveAccess(world)) {
+    const snapshot = await getWorldSnapshot(world.id);
+    return res.status(200).json({ world: snapshot });
+  }
 
   // Catches the world up through any real-world gap since the reader's
   // last visit -- silently, before they see anything. See passiveTick.js.

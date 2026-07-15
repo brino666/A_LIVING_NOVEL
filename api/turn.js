@@ -13,6 +13,7 @@ import { shouldConsolidate, consolidateMemory } from '../lib/novel-engine/memory
 import { evaluateChapterCap } from '../lib/novel-engine/chapters.js';
 import { applyDirectorUpdates } from '../lib/novel-engine/directorApply.js';
 import { requireMatchingUser } from '../lib/novel-engine/auth.js';
+import { hasActiveAccess } from '../lib/novel-engine/access.js';
 
 // The Director + Writer chain can still run past a minute even at the
 // shorter 1500-1800 word target -- Vercel's Hobby plan hard-caps functions
@@ -33,6 +34,13 @@ export default async function handler(req, res) {
     const snapshot = await getWorldSnapshot(worldId);
     if (!snapshot) return res.status(404).json({ error: 'World not found' });
     if (snapshot.world.user_id !== userId) return res.status(403).json({ error: 'Not your world' });
+
+    if (!hasActiveAccess(snapshot.world)) {
+      return res.status(402).json({
+        error: 'This world needs an active subscription to keep going.',
+        requiresSubscription: true,
+      });
+    }
 
     const capCheck = evaluateChapterCap(snapshot.world);
     if (!capCheck.allowed) {

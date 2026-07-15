@@ -1077,6 +1077,10 @@ async function takeTurn() {
       showChapterCapReached(data);
       return;
     }
+    if (res.status === 402) {
+      showSubscriptionRequired(data);
+      return;
+    }
     if (!res.ok) throw new Error(data.error || 'Failed to continue');
     archivePastScene();
     renderScene(data.scene, { worldTime: data.world_time, pacing: data.pacing });
@@ -1147,6 +1151,12 @@ function showChapterCapReached(data) {
   document.getElementById('chapterCapNote').textContent =
     "You've read today's " + (data.chapter_cap || '') + ' chapters. ' +
     (hoursLeft ? 'The world keeps moving -- come back in about ' + hoursLeft + 'h.' : 'Come back tomorrow.');
+}
+
+function showSubscriptionRequired(data) {
+  document.getElementById('chapterCapNote').textContent =
+    (data && data.error) || 'This world needs an active subscription to keep going.';
+  document.getElementById('settingsPanel').classList.add('open');
 }
 </script>
 </body>
