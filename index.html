@@ -386,6 +386,7 @@
         </label>
       </div>
       <button class="btn" id="onboardingContinueBtn" onclick="closeOnboarding()">Continue</button>
+      <p class="muted-note hidden" id="onboardingError">Could not save your agreement -- please try again.</p>
     </div>
 
     <div id="libraryView" class="hidden">
@@ -616,6 +617,10 @@ const VAPID_PUBLIC_KEY = 'BEw95Pe_e3YqYyyJRku4uVM5Z025ylZLJnpy94BAw5VaQa4hlh5uVu
 
 let supabaseClient = null;
 let currentUser = null;
+// Set from /api/agreement in onSignedIn(); tracks whether this account has
+// agreed to the current CURRENT_TERMS_VERSION server-side (see
+// lib/novel-engine/terms.js), not just in this browser.
+let hasAgreedToCurrentTerms = false;
 let currentAccessToken = null;
 let currentWorld = null; // full snapshot: { world, storyState, userCharacter, characters, locations, events }
 
@@ -657,15 +662,14 @@ function hideAllViews() {
   ['libraryView', 'createForm', 'sceneView', 'onboardingView', 'authGate'].forEach((id) => document.getElementById(id).classList.add('hidden'));
 }
 
-const ONBOARDING_SEEN_KEY = 'aln_onboarding_seen';
 let onboardingReturnAction = null;
 
 function showOnboarding(returnAction) {
   document.getElementById('settingsPanel').classList.remove('open');
-  // Viewing pre-sign-in never counts as "seen" -- otherwise a visitor who
+  // Viewing pre-sign-in never counts as "agreed" -- otherwise a visitor who
   // reads this before creating an account would skip the mandatory 18+/ToS
   // agreement once they actually sign up. See closeOnboarding().
-  const requireAgreement = !!currentUser && !localStorage.getItem(ONBOARDING_SEEN_KEY);
+  const requireAgreement = !!currentUser && !hasAgreedToCurrentTerms;
   const activeView = ['sceneView', 'createForm', 'libraryView', 'authGate'].find((id) => !document.getElementById(id).classList.contains('hidden'));
 
   onboardingReturnAction = returnAction || (() => {
@@ -678,6 +682,7 @@ function showOnboarding(returnAction) {
 
   hideAllViews();
   document.getElementById('intensityRow').classList.add('hidden');
+  document.getElementById('onboardingError').classList.add('hidden');
 
   const agreeBlock = document.getElementById('agreeBlock');
   const continueBtn = document.getElementById('onboardingContinueBtn');
@@ -693,16 +698,38 @@ function showOnboarding(returnAction) {
   document.getElementById('onboardingView').classList.remove('hidden');
 }
 
-function closeOnboarding() {
-  if (document.getElementById('onboardingContinueBtn').disabled) return;
-  // Only mark it seen once someone has actually signed in and agreed --
-  // pre-auth viewing (via the "See how it works" button on the sign-in
-  // screen) must not skip the real 18+/ToS agreement later.
-  if (currentUser) localStorage.setItem(ONBOARDING_SEEN_KEY, '1');
+async function closeOnboarding() {
+  const continueBtn = document.getElementById('onboardingContinueBtn');
+  if (continueBtn.disabled) return;
+  // Only record agreement once someone has actually signed in and checked
+  // the box -- pre-auth viewing (via the "See how it works" button on the
+  // sign-in screen) must not skip the real 18+/ToS agreement later. If the
+  // write fails, keep the dialog open rather than silently letting them
+  // through unrecorded.
+  if (currentUser && !hasAgreedToCurrentTerms) {
+    const recorded = await recordAgreement();
+    if (!recorded) return;
+  }
   document.getElementById('onboardingView').classList.add('hidden');
   const action = onboardingReturnAction;
   onboardingReturnAction = null;
   if (action) action();
+}
+
+async function recordAgreement() {
+  try {
+    const res = await fetch('/api/agreement', {
+      method: 'POST',
+      headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+      body: JSON.stringify({ userId: currentUser.id }),
+    });
+    if (!res.ok) throw new Error('Failed to record agreement');
+    hasAgreedToCurrentTerms = true;
+    return true;
+  } catch (e) {
+    document.getElementById('onboardingError').classList.remove('hidden');
+    return false;
+  }
 }
 
 function showCreateForm() {
@@ -1066,10 +1093,17 @@ async function onSignedIn(user) {
   document.getElementById('authGate').classList.add('hidden');
   document.getElementById('accountEmail').textContent = user.email || '';
   updateNotificationsRowVisibility();
-  const res = await fetch('/api/world?userId=' + encodeURIComponent(user.id), { headers: authHeaders() });
-  const data = await res.json();
+
+  const [worldRes, agreementRes] = await Promise.all([
+    fetch('/api/world?userId=' + encodeURIComponent(user.id), { headers: authHeaders() }),
+    fetch('/api/agreement?userId=' + encodeURIComponent(user.id), { headers: authHeaders() }),
+  ]);
+  const data = await worldRes.json();
+  const agreementData = await agreementRes.json();
+  hasAgreedToCurrentTerms = !!agreementData.agreed;
+
   const proceed = data.world ? () => enterWorld(data.world) : () => showCreateForm();
-  if (!localStorage.getItem(ONBOARDING_SEEN_KEY)) {
+  if (!hasAgreedToCurrentTerms) {
     showOnboarding(proceed);
   } else {
     proceed();
