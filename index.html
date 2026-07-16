@@ -286,6 +286,11 @@
     </header>
 
     <div id="authGate">
+      <h2 class="onboarding-title">A Living Novel</h2>
+      <p class="muted-note">An interactive story that keeps unfolding whether or not you show up --
+      real chapters shaped by what you do, time passing for everyone around you even while you're away.</p>
+      <button class="btn" onclick="showOnboarding()">See how it works</button>
+      <div class="settings-divider"></div>
       <p class="muted-note">Sign in to enter your world. A code will be emailed to you.</p>
       <input type="email" id="authEmail" placeholder="you@example.com">
       <button id="authSendBtn" onclick="sendMagicLink()">Send sign-in link</button>
@@ -649,7 +654,7 @@ async function sendMagicLink() {
 }
 
 function hideAllViews() {
-  ['libraryView', 'createForm', 'sceneView', 'onboardingView'].forEach((id) => document.getElementById(id).classList.add('hidden'));
+  ['libraryView', 'createForm', 'sceneView', 'onboardingView', 'authGate'].forEach((id) => document.getElementById(id).classList.add('hidden'));
 }
 
 const ONBOARDING_SEEN_KEY = 'aln_onboarding_seen';
@@ -657,8 +662,11 @@ let onboardingReturnAction = null;
 
 function showOnboarding(returnAction) {
   document.getElementById('settingsPanel').classList.remove('open');
-  const requireAgreement = !localStorage.getItem(ONBOARDING_SEEN_KEY);
-  const activeView = ['sceneView', 'createForm', 'libraryView'].find((id) => !document.getElementById(id).classList.contains('hidden'));
+  // Viewing pre-sign-in never counts as "seen" -- otherwise a visitor who
+  // reads this before creating an account would skip the mandatory 18+/ToS
+  // agreement once they actually sign up. See closeOnboarding().
+  const requireAgreement = !!currentUser && !localStorage.getItem(ONBOARDING_SEEN_KEY);
+  const activeView = ['sceneView', 'createForm', 'libraryView', 'authGate'].find((id) => !document.getElementById(id).classList.contains('hidden'));
 
   onboardingReturnAction = returnAction || (() => {
     hideAllViews();
@@ -677,18 +685,20 @@ function showOnboarding(returnAction) {
     agreeBlock.classList.remove('hidden');
     document.getElementById('agreeTermsCheck').checked = false;
     continueBtn.disabled = true;
-    continueBtn.textContent = 'Continue';
   } else {
     agreeBlock.classList.add('hidden');
     continueBtn.disabled = false;
-    continueBtn.textContent = 'Close';
   }
+  continueBtn.textContent = currentUser ? (requireAgreement ? 'Continue' : 'Close') : 'Sign up';
   document.getElementById('onboardingView').classList.remove('hidden');
 }
 
 function closeOnboarding() {
   if (document.getElementById('onboardingContinueBtn').disabled) return;
-  localStorage.setItem(ONBOARDING_SEEN_KEY, '1');
+  // Only mark it seen once someone has actually signed in and agreed --
+  // pre-auth viewing (via the "See how it works" button on the sign-in
+  // screen) must not skip the real 18+/ToS agreement later.
+  if (currentUser) localStorage.setItem(ONBOARDING_SEEN_KEY, '1');
   document.getElementById('onboardingView').classList.add('hidden');
   const action = onboardingReturnAction;
   onboardingReturnAction = null;
