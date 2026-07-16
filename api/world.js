@@ -1,8 +1,8 @@
 // api/world.js
 // Create or fetch a reader's world. Each world is its own subscription --
-// there's no per-account world limit tied to a plan (no billing exists yet
-// to enforce that), only a flat abuse-guard cap. See api/worlds.js for the
-// library listing endpoint.
+// the free preview is limited to one world per account (see handlePost),
+// and MAX_WORLDS_PER_USER below is a separate, flat abuse-guard cap on top
+// of that. See api/worlds.js for the library listing endpoint.
 
 import {
   sbFetch, getWorldSnapshot, getWorldById, getWorldForUser, getWorldsForUser, deleteWorld,
@@ -67,6 +67,16 @@ async function handlePost(req, res) {
   const existingWorlds = await getWorldsForUser(userId);
   if (existingWorlds.length >= MAX_WORLDS_PER_USER) {
     return res.status(429).json({ error: 'You have reached the maximum number of worlds for now.' });
+  }
+  // The free preview is one per account, not one per world -- without this,
+  // a reader could burn 3 free chapters, abandon the world, and repeat
+  // indefinitely. Once they have any world, every world after that requires
+  // at least one existing world to already be a paying (or grandfathered)
+  // subscription before they can start another.
+  if (existingWorlds.length > 0 && !existingWorlds.some(hasActiveAccess)) {
+    return res.status(403).json({
+      error: 'Subscribe to your current world before starting another -- the free preview is limited to one world per account.',
+    });
   }
 
   const [world] = await sbFetch('/worlds', {
